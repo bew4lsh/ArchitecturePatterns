@@ -1,0 +1,139 @@
+---
+title: Work Queue
+description: Distributing independent units of work to a pool of competing consumers, and the delivery semantics that come with it.
+sidebar:
+  order: 2
+---
+
+import Diagram from '../../../components/Diagram.astro';
+
+A work queue is the pattern behind every background job system: a producer writes a task to a queue, and a pool of interchangeable workers each take one task at a time. It is also the pattern people reach for without noticing they have, usually after giving a web request more work than a web request should do.
+
+## Context
+
+Work arrives as units that are independent of one another — resize this image, send that email, recompute this report. The caller does not need the result to continue, and the work is heavier than the request that triggers it.
+
+Two rates are now in play, and they are not the same rate. Requests arrive in bursts; work is consumed at whatever rate workers can manage.
+
+This pattern is named in several places under different names, because each describes a different part of it. RabbitMQ's tutorial calls it a **work queue**, also **task queue**. Enterprise Integration Patterns describes the consumer side as **competing consumers**. Microsoft's catalog splits it into **Queue-Based Load Leveling** for the burst-buffering framing and names the resulting architecture style **web-queue-worker**. There is no single settled name, so this page uses the mechanism's.
+
+## Forces
+
+- **Rate mismatch** — arrival rate is variable, processing rate is roughly fixed.
+- **Latency tolerance** — the caller can accept a delayed answer, or no direct answer at all.
+- **Cost** — provisioning for peak load is wasteful if bursts are rare and brief.
+- **Failure** — a worker can die mid-task, and the task still needs doing.
+- **Ordering** — sometimes it matters, and it is the first thing a queue gives up.
+- **Visibility** — once work is deferred, nobody is watching it unless you make them.
+
+## Solution
+
+Put a queue between the producer and the workers, and make the workers interchangeable.
+
+1. The producer writes **one message per unit of work** and returns. The message must carry everything the worker needs; a worker reaching back into the producer's state defeats the point.
+2. The queue stores messages until a worker takes one. A message goes to **exactly one** worker — this is point-to-point, not publish-subscribe.
+3. Workers pull, process, and **acknowledge**. Acknowledgement means "done, delete it", not "received".
+4. If a worker dies without acknowledging, the queue **redelivers** the message to another worker.
+
+Step 4 is the part that makes the pattern worth its complexity, and step 4 is also why your handlers must be idempotent: a worker that finished the work and crashed before acknowledging will cause that work to be done a second time.
+
+<Diagram caption="One queue, three competing consumers. The acknowledgement is what makes a worker's death survivable — and what makes duplicate delivery possible.">
+
+<svg viewBox="0 0 760 470" role="img" aria-label="A producer writes messages into a task queue; three workers pull one task each from the queue and return acknowledgements; tasks that keep failing go to a dead-letter queue.">
+	<defs>
+		<marker id="wq-deliver" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+			<path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--sl-color-gray-3)" />
+		</marker>
+		<marker id="wq-ack" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+			<path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--sl-color-accent)" />
+		</marker>
+	</defs>
+
+	<rect x="26" y="150" width="130" height="64" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="91" y="177" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:16px;font-weight:600">Producer</text>
+	<text x="91" y="197" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">one message per task</text>
+
+	<line x1="156" y1="182" x2="194" y2="182" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#wq-deliver)" />
+
+	<text x="246" y="42" text-anchor="middle" style="fill:var(--sl-color-gray-2);font-size:14px;font-weight:600">Task queue</text>
+	<rect x="200" y="58" width="92" height="240" rx="8" style="fill:none;stroke:var(--sl-color-gray-3)" stroke-width="1.5" />
+	<rect x="214" y="95" width="64" height="26" rx="4" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<rect x="214" y="129" width="64" height="26" rx="4" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<rect x="214" y="163" width="64" height="26" rx="4" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<rect x="214" y="197" width="64" height="26" rx="4" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<rect x="214" y="231" width="64" height="26" rx="4" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+
+	<line x1="292" y1="182" x2="330" y2="182" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" />
+	<line x1="330" y1="85" x2="330" y2="325" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" />
+	<line x1="330" y1="85" x2="386" y2="85" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#wq-deliver)" />
+	<line x1="330" y1="205" x2="386" y2="205" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#wq-deliver)" />
+	<line x1="330" y1="325" x2="386" y2="325" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#wq-deliver)" />
+
+	<rect x="390" y="53" width="190" height="64" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="485" y="90" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:16px;font-weight:600">Worker 1</text>
+	<rect x="390" y="173" width="190" height="64" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="485" y="210" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:16px;font-weight:600">Worker 2</text>
+	<rect x="390" y="293" width="190" height="64" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="485" y="330" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:16px;font-weight:600">Worker 3</text>
+
+	<line x1="390" y1="228" x2="298" y2="228" style="stroke:var(--sl-color-accent)" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#wq-ack)" />
+	<text x="343" y="220" text-anchor="middle" style="fill:var(--sl-color-accent);font-size:12px">ack</text>
+
+	<line x1="485" y1="357" x2="485" y2="391" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#wq-deliver)" />
+	<text x="506" y="380" style="fill:var(--sl-color-gray-3);font-size:11px">after repeated failures</text>
+
+	<rect x="390" y="397" width="190" height="56" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="485" y="423" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:14px;font-weight:600">Dead-letter queue</text>
+	<text x="485" y="441" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">messages that keep failing</text>
+</svg>
+
+</Diagram>
+
+Nothing in that structure scales a worker, so the queue absorbs the difference: while workers are saturated, the queue grows, and the work simply waits. That buffering is the whole benefit, and it is also the whole hazard — a growing queue is invisible work.
+
+## Variants
+
+- **Competing consumers** — the Enterprise Integration Patterns name for several consumers on one point-to-point channel. Requires a point-to-point channel specifically; on a publish-subscribe channel, extra consumers get extra *copies*, not extra throughput.
+- **Queue-based load leveling** — the same structure with the emphasis on protecting a downstream dependency from bursts, so it can be provisioned for average load.
+- **Web-queue-worker** — the architecture style that results when this becomes the spine of the system: stateless web tier, queue, stateless worker tier.
+- **Priority queue** — several queues with different service rates, or a queue that reorders. Usually a sign that one queue is being asked to serve two different latency expectations.
+- **Delayed or scheduled queues** — the message becomes visible at a future time. Turns the pattern into a scheduler.
+- **FIFO with message groups** — ordering is preserved within a group key rather than globally, which is the only kind of ordering most systems actually need.
+- **Partitioned logs (Kafka)** — each partition is the real point-to-point channel and a router assigns messages by key. Consumers in a group do not truly compete: an idle consumer cannot help a partition that is backed up, and the group can never exceed the partition count.
+
+## Tradeoffs
+
+- **Deployability and independence** improve in the way that matters: workers are stateless and crash-tolerant, so they can be restarted, rescaled, and replaced at will.
+- **Cost** improves for bursty work — you provision for average throughput, not peak. Idle workers and queue storage are the price, usually a good trade.
+- **Availability** improves for the producer: it can keep accepting work while workers are down, because the queue holds the backlog. The broker becomes a hard dependency in exchange, and it is now in the critical path of everything.
+- **Latency** gets worse, and not just by one hop. Queuing delay is the dominant term: with a backlog, p99 latency is a function of queue depth divided by throughput, not of how fast the handler is.
+- **Ordering** is lost as soon as more than one worker runs. Getting it back costs throughput.
+- **Operability** grows a new signal that must be watched: queue depth. It is the only thing that tells you the system is falling behind.
+- **Backpressure** does not exist unless you build it. A queue accepts everything offered to it, which is why "the queue is our buffer" so often becomes "the queue is where work goes to die".
+
+## Failure modes
+
+- **Queuing work that needed an answer** — once enqueueing is cheap, everything gets queued, including work the caller is waiting on. The system acquires a latency profile nobody chose, and one that is invisible in the code that enqueues.
+- **Rate mismatch** — if the average producer rate exceeds the average consumer rate, the queue grows forever. Queuing does not fix this; it only converts a visible failure into an invisible one.
+- **Poison messages** — a message that always fails cycles indefinitely. Route it to a dead-letter queue after a bounded number of attempts, and alert on that queue's depth, because an unmonitored dead-letter queue is a silent data-loss channel.
+- **Forgotten acknowledgement** — the worker does the work but never acks. The broker holds every unacknowledged message in memory and redelivers them all when the worker disconnects, which looks like random duplication. In RabbitMQ this also grows broker memory without bound.
+- **Duplicate processing** — at-least-once delivery is the norm, so a crash between committing the work and sending the ack causes the work to be repeated. Without an idempotent receiver, that is a duplicate charge or a duplicate record.
+- **Unbounded downstream rate** — autoscaling consumers against queue depth without capping their aggregate rate onto the next dependency moves the overload one hop downstream, where it is harder to see.
+- **Wasted work** — a backlog makes it easy to process work that no longer matters. Give messages a deadline or a TTL, and let the worker discard expired ones rather than doing them carefully.
+- **Uneven workers** — round-robin dispatch is blind to task weight, so a queue of mixed-difficulty tasks leaves one worker saturated while others idle. Limiting each worker to one unacknowledged message at a time (`prefetch = 1`) fixes it by dispatching to whoever is free.
+
+## When to reach for it
+
+Reach for it when the work is independent, the caller can wait, and demand is bursty. The pattern's real payoff is provisioning for average load while surviving peak load, and it gets a second payoff almost for free: workers become restartable, because the queue remembers the work.
+
+Do not reach for it when the caller needs a synchronous low-latency answer — that is a different pattern, and adding a queue in front of a synchronous call mostly adds a timeout you now have to tune. Do not reach for it when volume is low and stable, where the queue is complexity that never pays for itself. Do not reach for it to get ordering: it takes ordering away by design.
+
+Also worth being clear about scope: this is not an alternative to a structural style like [Layered Architecture](/patterns/layered-architecture/). It says how work is distributed, not how an application is organised, and most systems that use it are also layered internally.
+
+## References
+
+- RabbitMQ, [Work Queues](https://www.rabbitmq.com/tutorials/tutorial-two-python) — the canonical walkthrough, including acknowledgements, durable queues, and fair dispatch.
+- Hohpe & Woolf, *Enterprise Integration Patterns* — [Competing Consumers](https://www.enterpriseintegrationpatterns.com/patterns/messaging/CompetingConsumers.html), [Point-to-Point Channel](https://www.enterpriseintegrationpatterns.com/patterns/messaging/PointToPointChannel.html), [Idempotent Receiver](https://www.enterpriseintegrationpatterns.com/patterns/messaging/IdempotentReceiver.html), [Dead Letter Channel](https://www.enterpriseintegrationpatterns.com/patterns/messaging/DeadLetterChannel.html).
+- Microsoft, Azure Architecture Center — [Queue-Based Load Leveling](https://learn.microsoft.com/en-us/azure/architecture/patterns/queue-based-load-leveling) and the [Web-Queue-Worker architecture style](https://learn.microsoft.com/en-us/azure/architecture/guide/architecture-styles/web-queue-worker).
+- AWS, [Amazon SQS visibility timeout](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html) — how a lease-based queue decides a worker has died.
+- Google Cloud, [Cloud Tasks overview](https://cloud.google.com/tasks/docs/dual-overview) — the managed form of the pattern.
