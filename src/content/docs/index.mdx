@@ -1,0 +1,32 @@
+---
+title: Architecture Patterns
+description: Self-study notes on software architecture patterns.
+template: splash
+hero:
+  tagline: Notes on software architecture patterns — the forces behind each one, what it costs, and when it earns its keep.
+  # Hero links are not Markdown, so remark-base-links cannot rewrite them: keep the base path here in sync with astro.config.mjs.
+  actions:
+    - text: Start with Layered
+      link: /ArchitecturePatterns/patterns/layered-architecture/
+      icon: right-arrow
+    - text: How to read these pages
+      link: /ArchitecturePatterns/foundations/reading-patterns/
+      icon: document
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## What's here
+
+<CardGrid stagger>
+	<Card title="Foundations" icon="open-book">
+		The vocabulary these notes assume: forces, quality attributes, and how to read a pattern page.
+	</Card>
+	<Card title="Patterns" icon="puzzle">
+		One page per pattern, each laid out the same way so they stay comparable.
+	</Card>
+	<Card title="Diagrams" icon="pencil">
+		Hand-authored SVG, versioned alongside the prose so it stays honest.
+	</Card>
+</CardGrid>

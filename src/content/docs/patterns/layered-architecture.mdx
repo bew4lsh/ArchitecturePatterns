@@ -1,0 +1,105 @@
+---
+title: Layered Architecture
+description: Horizontal layers with a strict dependency direction — the default shape that most applications are already in.
+sidebar:
+  order: 1
+---
+
+import Diagram from '../../../components/Diagram.astro';
+
+## Context
+
+You are building a business application — a system whose complexity lives in rules rather than in algorithms. It has a user interface, some domain logic, and some persistence, and the team is small enough that everyone works in the same codebase. Nothing yet forces the pieces apart.
+
+## Forces
+
+- **Separation of concerns** — UI code and business rules change for different reasons and at different rates.
+- **Testability** — domain rules should be exercisable without a database or an HTTP request.
+- **Onboarding** — a new contributor needs an obvious place to put things.
+- **Change cost** — a naive layering adds indirection to every call, so the boundary has to earn its place.
+
+## Solution
+
+Organise the code into horizontal layers, each with a single responsibility, and allow a layer to talk only to the one directly beneath it.
+
+<Diagram caption="Four closed layers. A request descends through each; nothing reaches across a layer.">
+
+<svg viewBox="0 0 680 430" role="img" aria-label="Four stacked layers — Presentation, Application, Domain, Persistence — with dependencies pointing downwards and a closed boundary marked between Presentation and Application.">
+	<defs>
+		<marker id="layered-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+			<path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--sl-color-gray-3)" />
+		</marker>
+	</defs>
+
+	<text transform="rotate(-90 22 209)" x="22" y="209" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:13px">
+		dependency direction
+	</text>
+	<line x1="40" y1="34" x2="40" y2="384" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#layered-arrow)" />
+
+	<rect x="64" y="30" width="400" height="64" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="264" y="58" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:17px;font-weight:600">Presentation</text>
+	<text x="264" y="78" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:13px">controllers, views, CLI</text>
+
+	<rect x="64" y="128" width="400" height="64" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="264" y="156" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:17px;font-weight:600">Application</text>
+	<text x="264" y="176" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:13px">use cases, orchestration, transactions</text>
+
+	<rect x="64" y="226" width="400" height="64" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="264" y="254" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:17px;font-weight:600">Domain</text>
+	<text x="264" y="274" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:13px">entities, business rules, invariants</text>
+
+	<rect x="64" y="324" width="400" height="64" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="264" y="352" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:17px;font-weight:600">Persistence</text>
+	<text x="264" y="372" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:13px">repositories, mappers, adapters</text>
+
+	<line x1="264" y1="96" x2="264" y2="126" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#layered-arrow)" />
+	<line x1="264" y1="194" x2="264" y2="224" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#layered-arrow)" />
+	<line x1="264" y1="292" x2="264" y2="322" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#layered-arrow)" />
+
+	<line x1="64" y1="111" x2="464" y2="111" style="stroke:var(--sl-color-accent)" stroke-width="1.5" stroke-dasharray="6 5" />
+	<text x="478" y="115" style="fill:var(--sl-color-accent);font-size:13px">closed boundary</text>
+</svg>
+
+</Diagram>
+
+The rules that make this more than a folder convention:
+
+1. **A layer may only call the layer directly below it.** Presentation does not reach into Persistence; it goes through Application.
+2. **A request descends, a response ascends.** Data crossing a boundary is translated at it — a domain object does not become an HTTP response in the domain layer.
+3. **A layer owns its abstractions.** The Domain layer defines the interface it needs; Persistence implements it. That inverts the compile-time dependency even though the runtime call still goes downward.
+
+Rule 3 is the one people miss, and it is the difference between a layering that is testable and one that merely looks tidy.
+
+## Variants
+
+- **Relaxed layers** — a layer may skip downward past its neighbour (Presentation may call Domain directly for simple reads). Cheap, and it tends to become the rule rather than the exception.
+- **Open layers** — a boundary that requests may pass straight through. Usually justified exactly once, for a shared utility layer.
+- **Strict layers** — every boundary closed. What this page describes, and the version that ages best.
+- **Ports and adapters** — the Domain at the centre with all I/O at the edges. This is a layered architecture with Rule 3 taken seriously and the diagram rotated 90°, not a different idea.
+
+## Tradeoffs
+
+- **Modifiability** is good for changes that stay inside one layer, and poor for changes that are genuinely cross-cutting (a new field on a form that must be persisted usually touches four layers).
+- **Testability** of the Domain layer is high; the layers above it are usually testable only through their boundary.
+- **Deployability** is unchanged: one unit, released together. Layering buys nothing here.
+- **Performance** gains a call hop per layer and a translation at each boundary. Usually noise; visible in tight loops and in mapping-heavy read paths.
+- **Onboarding** improves, genuinely. This is the pattern's most reliable payoff.
+
+## Failure modes
+
+- **The sinkhole** — every request is a pass-through with no logic in the middle layers. The layers are pure ceremony, and you are paying indirection for nothing.
+- **Layer leakage** — a domain entity with `@JsonProperty` annotations, or a repository returning `ResultSet`. Once a lower layer knows about an upper layer's format, the boundary is decorative.
+- **Fat persistence** — business rules migrating into stored procedures or ORM hooks, because that is where the data is.
+- **Skipped layers by convention drift** — "just this once" from Presentation to Persistence, and then the diagram becomes a lie.
+
+## When to reach for it
+
+Reach for it when the domain is rule-heavy, the team is more than one person, and the system ships as a single unit. It is the right default precisely because it is cheap and because it fails loudly: a sinkhole is visible in a diff, whereas a distributed mess is not.
+
+Do not reach for it when the application is mostly CRUD over a database — that is where the sinkhole comes from — or when you are already paying for a distributed system, where the layering should follow the services instead.
+
+## References
+
+- Richards & Ford, *Fundamentals of Software Architecture*, ch. 10 — "Layered Architecture".
+- Fowler, *Patterns of Enterprise Application Architecture* — "Layers".
+- Cockburn, *Hexagonal Architecture* (2005) — the same idea with I/O at the edges.
