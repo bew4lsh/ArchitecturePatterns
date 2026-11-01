@@ -2,6 +2,7 @@
 import { satteri } from '@astrojs/markdown-satteri';
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import starlightThemeFlexoki from 'starlight-theme-flexoki';
 import { baseLinks } from './src/plugins/base-links.mjs';
 
 const base = '/ArchitecturePatterns';
@@ -15,6 +16,7 @@ export default defineConfig({
 	},
 	integrations: [
 		starlight({
+			plugins: [starlightThemeFlexoki()],
 			title: 'Architecture Patterns',
 			description: 'Self-study notes on software architecture patterns.',
 			social: [
