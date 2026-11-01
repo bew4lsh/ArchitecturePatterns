@@ -1,6 +1,8 @@
 // @ts-check
+import { satteri } from '@astrojs/markdown-satteri';
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import { baseLinks } from './src/plugins/base-links.mjs';
 
 const base = '/ArchitecturePatterns';
 
@@ -8,6 +10,9 @@ const base = '/ArchitecturePatterns';
 export default defineConfig({
 	site: 'https://bew4lsh.github.io',
 	base,
+	markdown: {
+		processor: satteri({ mdastPlugins: [baseLinks({ base })] }),
+	},
 	integrations: [
 		starlight({
 			title: 'Architecture Patterns',
