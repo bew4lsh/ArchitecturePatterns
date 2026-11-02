@@ -49,7 +49,9 @@ Each of these is a choice that is not visible from the file it affects:
 - **A figure lives in the page it belongs to,** as hand-authored SVG rather than an image
   or a drawing tool, so that the picture and the prose change in the same commit. When a
   figure needs a script it becomes an Astro component in `src/components/` instead, since
-  MDX cannot bundle one.
+  MDX cannot bundle one. Give such a component's root the `not-content` class: without it
+  Starlight's prose spacing lands between the widget's own children, and a row of marks,
+  cells or buttons comes out as a staircase.
 - **The sidebar can fold away on desktop** — `SidebarToggle.astro`, which reaches the
   header through a one-line `SocialIcons` override. It works by zeroing Starlight's
   `--sl-sidebar-width`, so widths come from Starlight's variables rather than from
