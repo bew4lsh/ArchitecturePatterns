@@ -7,6 +7,7 @@ sidebar:
 
 import Diagram from '../../../components/Diagram.astro';
 import LayerBoundaries from '../../../components/LayerBoundaries.astro';
+import CheckYourself from '../../../components/CheckYourself.astro';
 
 ## Also known as
 
@@ -145,6 +146,27 @@ Opening a boundary is the one decision this style asks you to make repeatedly, a
 - **Layer leakage** — a domain entity with `@JsonProperty` annotations, or a repository returning `ResultSet`. Once a lower layer knows about an upper layer's format, the boundary is decorative. The quieter version is a module of shared types that every layer imports: Buschmann and others treat that as relaxing strict layering, and it is how a strict diagram becomes only a diagram.
 - **Fat persistence** — business rules migrating into stored procedures or ORM hooks, because that is where the data is.
 - **Skipped layers by convention drift** — nobody decided to open a boundary; it simply became normal, "just this once" at a time, and the diagram became a lie. The difference between an open layer and a leak is that the open one is written down and the leak is not.
+
+### Check yourself
+
+<CheckYourself
+	question="Every request in your system is a pass-through: the controller calls a service, which calls a repository, which reads one row. What does the sinkhole ratio say about that?"
+	options={[
+		{
+			label: 'The layers are costing hops without buying structure',
+			feedback: 'Right. Pass-through is normal for around 20% of requests; a system where it is most of them has paid for boundaries it never uses. Open one, or stop paying for the style.',
+			correct: true,
+		},
+		{
+			label: 'Nothing yet, because some pass-through is always normal',
+			feedback: 'Some is normal, and around 20% of requests is the usual share. This is not some: it is every request, which is the inverted ratio the heuristic is pointing at.',
+		},
+		{
+			label: 'More layers, to separate the concerns properly',
+			feedback: 'Another layer adds another hop to the pass-through. The layers are the cost being questioned here, not the remedy.',
+		},
+	]}
+/>
 
 ## When to reach for it
 
