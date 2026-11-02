@@ -15,10 +15,15 @@ const label = 'Hide the sidebar';
 <script is:inline>
 	(() => {
 		const STORAGE_KEY = 'starlight-sidebar';
+		const BOUND_FLAG = 'sidebarToggleBound';
 		const root = document.documentElement;
-		const button = document.querySelector('[data-sidebar-toggle]');
-		if (!button) return;
-		const label = button.querySelector('.sr-only');
+
+		// Starlight renders some components in more than one place, so a second copy of this
+		// script is possible. Two listeners would toggle the sidebar twice and cancel out.
+		if (root.dataset[BOUND_FLAG]) return;
+		root.dataset[BOUND_FLAG] = 'true';
+
+		const toggles = () => document.querySelectorAll('[data-sidebar-toggle]');
 
 		const read = () => {
 			try {
@@ -40,13 +45,18 @@ const label = 'Hide the sidebar';
 		const apply = (hidden) => {
 			if (hidden) root.dataset.sidebar = 'hidden';
 			else delete root.dataset.sidebar;
-			button.setAttribute('aria-expanded', hidden ? 'false' : 'true');
-			if (label) label.textContent = hidden ? 'Show the sidebar' : 'Hide the sidebar';
+			toggles().forEach((toggle) => {
+				toggle.setAttribute('aria-expanded', hidden ? 'false' : 'true');
+				const label = toggle.querySelector('.sr-only');
+				if (label) label.textContent = hidden ? 'Show the sidebar' : 'Hide the sidebar';
+			});
 		};
 
 		apply(read());
 
-		button.addEventListener('click', () => {
+		document.addEventListener('click', (event) => {
+			const target = event.target;
+			if (!(target instanceof Element) || !target.closest('[data-sidebar-toggle]')) return;
 			const hidden = root.dataset.sidebar !== 'hidden';
 			apply(hidden);
 			write(hidden);
@@ -57,8 +67,8 @@ const label = 'Hide the sidebar';
 <style>
 	.sidebar-toggle {
 		display: flex;
-		padding: 0.5em;
-		margin: -0.5em;
+		align-items: center;
+		padding: 0.4em;
 		border: 0;
 		background: none;
 		color: var(--sl-color-gray-3);
@@ -84,6 +94,14 @@ const label = 'Hide the sidebar';
 
 	:global(html[data-sidebar='hidden']) .when-hidden {
 		display: block;
+	}
+
+	/* Below this width Starlight turns the sidebar into a popover with its own menu button,
+	   and the layout rules below do not apply. */
+	@media screen and (width < 50em) {
+		.sidebar-toggle {
+			display: none;
+		}
 	}
 
 	/* Nothing to collapse on a page that has no sidebar, such as the splash page. */

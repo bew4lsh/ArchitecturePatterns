@@ -17,7 +17,10 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			components: {
-				SocialIcons: './src/components/overrides/SocialIcons.astro',
+				// Starlight renders SocialIcons in both the header and the mobile menu footer, so a
+				// toggle hosted there is duplicated. SiteTitle renders once, in the header, and sits
+				// on the same side as the sidebar.
+				SiteTitle: './src/components/overrides/SiteTitle.astro',
 			},
 			plugins: [starlightThemeFlexoki()],
 			title: 'Architecture Patterns',
