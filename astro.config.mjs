@@ -16,6 +16,9 @@ export default defineConfig({
 	},
 	integrations: [
 		starlight({
+			components: {
+				SocialIcons: './src/components/overrides/SocialIcons.astro',
+			},
 			plugins: [starlightThemeFlexoki()],
 			title: 'Architecture Patterns',
 			description: 'Self-study notes on software architecture patterns.',

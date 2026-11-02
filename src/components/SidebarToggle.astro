@@ -1,0 +1,114 @@
+---
+const label = 'Hide the sidebar';
+---
+
+<button type="button" class="sidebar-toggle" data-sidebar-toggle aria-controls="starlight__sidebar" aria-expanded="true">
+	<span class="sr-only">{label}</span>
+	<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+		<rect x="3" y="4.5" width="18" height="15" rx="2.5" />
+		<path d="M9.5 4.5v15" />
+		<path class="when-shown" d="M16 9.5 13.5 12l2.5 2.5" />
+		<path class="when-hidden" d="M13.5 9.5 16 12l-2.5 2.5" />
+	</svg>
+</button>
+
+<script is:inline>
+	(() => {
+		const STORAGE_KEY = 'starlight-sidebar';
+		const root = document.documentElement;
+		const button = document.querySelector('[data-sidebar-toggle]');
+		if (!button) return;
+		const label = button.querySelector('.sr-only');
+
+		const read = () => {
+			try {
+				return localStorage.getItem(STORAGE_KEY) === 'hidden';
+			} catch {
+				return false;
+			}
+		};
+
+		const write = (hidden) => {
+			try {
+				if (hidden) localStorage.setItem(STORAGE_KEY, 'hidden');
+				else localStorage.removeItem(STORAGE_KEY);
+			} catch {
+				return;
+			}
+		};
+
+		const apply = (hidden) => {
+			if (hidden) root.dataset.sidebar = 'hidden';
+			else delete root.dataset.sidebar;
+			button.setAttribute('aria-expanded', hidden ? 'false' : 'true');
+			if (label) label.textContent = hidden ? 'Show the sidebar' : 'Hide the sidebar';
+		};
+
+		apply(read());
+
+		button.addEventListener('click', () => {
+			const hidden = root.dataset.sidebar !== 'hidden';
+			apply(hidden);
+			write(hidden);
+		});
+	})();
+</script>
+
+<style>
+	.sidebar-toggle {
+		display: flex;
+		padding: 0.5em;
+		margin: -0.5em;
+		border: 0;
+		background: none;
+		color: var(--sl-color-gray-3);
+		cursor: pointer;
+	}
+
+	.sidebar-toggle:hover {
+		color: var(--sl-color-white);
+	}
+
+	.sidebar-toggle:focus-visible {
+		outline: 2px solid var(--sl-color-accent);
+		outline-offset: 2px;
+	}
+
+	.when-hidden {
+		display: none;
+	}
+
+	:global(html[data-sidebar='hidden']) .when-shown {
+		display: none;
+	}
+
+	:global(html[data-sidebar='hidden']) .when-hidden {
+		display: block;
+	}
+
+	/* Nothing to collapse on a page that has no sidebar, such as the splash page. */
+	:global(html:not([data-has-sidebar])) .sidebar-toggle {
+		display: none;
+	}
+
+	@media screen and (min-width: 50em) {
+		/* Starlight measures the sidebar and the space reserved for it from this one
+		   variable, so zeroing it is how a sidebar leaves the layout; Starlight does the
+		   same when printing. The width is the page's reading measure, widened because the
+		   sidebar is no longer taking a share of the screen. */
+		:global(html[data-sidebar='hidden'][data-has-sidebar]) {
+			--sl-sidebar-width: 0px;
+			--sl-content-width: 50rem;
+		}
+
+		:global(html[data-sidebar='hidden'] .sidebar-pane) {
+			display: none;
+		}
+
+		/* With the sidebar gone the text column is centred in the space that is left
+		   instead of being pushed against the table of contents. */
+		:global(html[data-sidebar='hidden'][data-has-sidebar][data-has-toc] .main-pane) {
+			--sl-content-margin-inline: auto;
+		}
+	}
+</style>
