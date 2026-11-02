@@ -1,0 +1,381 @@
+---
+interface Props {
+	/** Messages per minute one worker can finish. */
+	servicePerWorker?: number;
+}
+
+const { servicePerWorker = 2 } = Astro.props;
+
+const workerSlots = Array.from({ length: 12 });
+const cells = Array.from({ length: 32 });
+const initialArrival = 8;
+const initialWorkers = 3;
+const initialCapacity = initialWorkers * servicePerWorker;
+---
+
+<section class="sim" data-sim data-health="growing" data-service={servicePerWorker} aria-label="Queue depth simulator">
+	<div class="controls">
+		<label class="control">
+			<span>Arrivals <b data-arrival-value>{initialArrival}</b> per minute</span>
+			<input type="range" data-arrival min="1" max="20" step="1" value={initialArrival} />
+		</label>
+		<label class="control">
+			<span>Workers <b data-workers-value>{initialWorkers}</b> × {servicePerWorker} per minute</span>
+			<input type="range" data-workers min="1" max="12" step="1" value={initialWorkers} />
+		</label>
+		<div class="buttons">
+			<button type="button" data-toggle>Pause</button>
+			<button type="button" data-reset>Reset</button>
+		</div>
+	</div>
+
+	<p class="verdict" data-verdict>
+		{initialArrival} messages arrive per minute and the workers finish {initialCapacity}. The queue grows without bound.
+	</p>
+
+	<figure class="chart">
+		<svg viewBox="0 0 600 90" preserveAspectRatio="none" role="img" aria-label="Line chart of the number of messages waiting in the queue over the last three simulated minutes">
+			<line x1="0" y1="89" x2="600" y2="89" style="stroke:var(--sl-color-gray-4)" stroke-width="1" vector-effect="non-scaling-stroke" />
+			<path data-area d="M0 89 L600 89 Z" style="fill:var(--sim-area)" />
+			<polyline data-line points="" style="fill:none;stroke:var(--sim-line);stroke-width:2;stroke-linejoin:round" vector-effect="non-scaling-stroke" />
+		</svg>
+		<figcaption>
+			<span>Messages waiting, last three minutes</span>
+			<span class="peak" data-peak>peak 4</span>
+		</figcaption>
+	</figure>
+
+	<div class="readout">
+		<div class="bar" data-bar aria-hidden="true">
+			{cells.map(() => <i class="cell" />)}
+		</div>
+		<p class="note" data-queue-note>empty</p>
+	</div>
+
+	<div class="readout">
+		<div class="workers" data-workers-list aria-hidden="true">
+			{workerSlots.map((_, index) => (
+				<span class="worker" data-worker hidden={index >= initialWorkers}>
+					<i class="worker-fill" data-worker-fill />
+				</span>
+			))}
+		</div>
+		<p class="note" data-worker-note>{initialWorkers} workers × {servicePerWorker}/min = {initialCapacity}/min</p>
+	</div>
+</section>
+
+<style>
+	.sim {
+		display: grid;
+		gap: 1rem;
+		margin: 2rem 0;
+		padding: 1.25rem;
+		border: 1px solid var(--sl-color-gray-4);
+		border-radius: 0.75rem;
+		background: var(--sl-color-gray-6);
+	}
+
+	.sim[data-health='growing'] {
+		--sim-line: var(--sl-color-red);
+		--sim-area: var(--sl-color-red-low);
+	}
+
+	.sim[data-health='holding'] {
+		--sim-line: var(--sl-color-orange);
+		--sim-area: var(--sl-color-orange-low);
+	}
+
+	.sim[data-health='stable'],
+	.sim[data-health='draining'] {
+		--sim-line: var(--sl-color-green);
+		--sim-area: var(--sl-color-green-low);
+	}
+
+	.controls {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: end;
+		gap: 0.75rem 1.5rem;
+	}
+
+	.control {
+		display: grid;
+		flex: 1 1 14rem;
+		gap: 0.35rem;
+		font-size: 0.8125rem;
+		color: var(--sl-color-gray-2);
+	}
+
+	.control b {
+		font-variant-numeric: tabular-nums;
+	}
+
+	.control input {
+		width: 100%;
+		accent-color: var(--sl-color-accent);
+	}
+
+	.buttons {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.buttons button {
+		padding: 0.35rem 0.75rem;
+		border: 1px solid var(--sl-color-gray-4);
+		border-radius: 0.375rem;
+		background: transparent;
+		color: var(--sl-color-gray-2);
+		font: inherit;
+		font-size: 0.8125rem;
+		cursor: pointer;
+	}
+
+	.buttons button:hover {
+		background: var(--sl-color-gray-5);
+	}
+
+	.verdict {
+		margin: 0;
+		font-size: 0.9375rem;
+		color: var(--sl-color-gray-1);
+	}
+
+	.verdict::before {
+		content: '';
+		display: inline-block;
+		width: 0.5rem;
+		height: 0.5rem;
+		margin-right: 0.5rem;
+		border-radius: 50%;
+		background: var(--sim-line);
+	}
+
+	.chart {
+		margin: 0;
+	}
+
+	.chart svg {
+		display: block;
+		width: 100%;
+		height: 90px;
+	}
+
+	.chart figcaption {
+		display: flex;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-top: 0.35rem;
+		font-size: 0.75rem;
+		color: var(--sl-color-gray-3);
+	}
+
+	.peak,
+	.note {
+		font-variant-numeric: tabular-nums;
+	}
+
+	.readout {
+		display: grid;
+		gap: 0.4rem;
+	}
+
+	.bar {
+		display: flex;
+		gap: 2px;
+		height: 1.5rem;
+	}
+
+	.cell {
+		flex: 1;
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 2px;
+	}
+
+	.cell[data-on] {
+		border-color: var(--sim-line);
+		background: var(--sim-line);
+	}
+
+	.workers {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 3px;
+	}
+
+	.worker {
+		position: relative;
+		width: 1.1rem;
+		height: 1.6rem;
+		border: 1px solid var(--sl-color-gray-4);
+		border-radius: 3px;
+		overflow: hidden;
+	}
+
+	.worker[hidden] {
+		display: none;
+	}
+
+	.worker-fill {
+		position: absolute;
+		inset: auto 0 0 0;
+		display: block;
+		height: 100%;
+		background: var(--sl-color-accent);
+		opacity: 0.6;
+	}
+
+	.note {
+		margin: 0;
+		font-size: 0.75rem;
+		color: var(--sl-color-gray-3);
+	}
+</style>
+
+<script>
+	const TICK_MS = 100;
+	const MINUTES_PER_TICK = 0.05;
+	const HISTORY = 60;
+	const PEAK_FLOOR = 4;
+
+	function init(root: HTMLElement) {
+		const servicePerWorker = Number(root.dataset.service ?? 2);
+		const arrivalInput = root.querySelector<HTMLInputElement>('[data-arrival]')!;
+		const workersInput = root.querySelector<HTMLInputElement>('[data-workers]')!;
+		const arrivalValue = root.querySelector('[data-arrival-value]')!;
+		const workersValue = root.querySelector('[data-workers-value]')!;
+		const verdict = root.querySelector('[data-verdict]')!;
+		const area = root.querySelector('[data-area]')!;
+		const line = root.querySelector('[data-line]')!;
+		const peak = root.querySelector('[data-peak]')!;
+		const cells = root.querySelectorAll('[data-bar] .cell');
+		const queueNote = root.querySelector('[data-queue-note]')!;
+		const workersList = root.querySelector('[data-workers-list]')!;
+		const workerSlots = workersList.querySelectorAll<HTMLElement>('[data-worker]');
+		const workerFills = workersList.querySelectorAll<HTMLElement>('[data-worker-fill]');
+		const workerNote = root.querySelector('[data-worker-note]')!;
+		const toggle = root.querySelector<HTMLButtonElement>('[data-toggle]')!;
+		const reset = root.querySelector<HTMLButtonElement>('[data-reset]')!;
+
+		let backlog = 0;
+		let history = new Array<number>(HISTORY).fill(0);
+		let timer = 0;
+		let running = true;
+
+		const arrival = () => Number(arrivalInput.value);
+		const workers = () => Number(workersInput.value);
+		const capacity = () => workers() * servicePerWorker;
+
+		const health = () => {
+			if (arrival() > capacity()) return 'growing';
+			if (arrival() === capacity()) return 'holding';
+			return backlog > 1 ? 'draining' : 'stable';
+		};
+
+		const describe = () => {
+			const rate = arrival();
+			const power = capacity();
+			if (rate > power) {
+				return `${rate} messages arrive per minute and the workers finish ${power}. The queue grows without bound.`;
+			}
+			if (rate === power) {
+				return `${rate} messages arrive per minute and the workers finish ${power}. The queue holds its depth and never drains.`;
+			}
+			if (backlog > 1) {
+				const minutes = backlog / (power - rate);
+				return `${rate} messages arrive per minute and the workers finish ${power}. The backlog drains in about ${minutes.toFixed(1)} minutes.`;
+			}
+			const idle = Math.round((1 - rate / power) * 100);
+			return `${rate} messages arrive per minute and the workers finish ${power}. The queue stays empty and the workers idle about ${idle}% of the time.`;
+		};
+
+		const drawChart = () => {
+			const max = Math.max(PEAK_FLOOR, ...history);
+			const step = 600 / (HISTORY - 1);
+			const points = history.map((depth, index) => `${(index * step).toFixed(1)},${(89 - (depth / max) * 80).toFixed(1)}`);
+			line.setAttribute('points', points.join(' '));
+			area.setAttribute('d', `M0 89 L${points.join(' L')} L600 89 Z`);
+			peak.textContent = `peak ${Math.round(max)}`;
+		};
+
+		const render = () => {
+			root.dataset.health = health();
+			verdict.textContent = describe();
+			arrivalValue.textContent = String(arrival());
+			workersValue.textContent = String(workers());
+
+			const queued = Math.round(backlog);
+			cells.forEach((cell, index) => cell.toggleAttribute('data-on', index < queued));
+			const draining = capacity() > arrival();
+			queueNote.textContent =
+				queued === 0
+					? 'empty'
+					: draining
+						? `${queued} waiting · clears in about ${(backlog / (capacity() - arrival())).toFixed(1)} min at this rate`
+						: `${queued} waiting · not draining at this rate`;
+
+			const count = workers();
+			const load = backlog > 0.01 ? 1 : Math.min(1, arrival() / capacity());
+			workerSlots.forEach((slot, index) => (slot.hidden = index >= count));
+			workerFills.forEach((fill) => (fill.style.height = `${Math.round(load * 100)}%`));
+			workerNote.textContent = `${count} worker${count === 1 ? '' : 's'} × ${servicePerWorker}/min = ${capacity()}/min`;
+
+			drawChart();
+		};
+
+		const tick = () => {
+			const expected = arrival() * MINUTES_PER_TICK;
+			const arrived = Math.random() < expected ? 1 : 0;
+			const served = Math.min(backlog + arrived, capacity() * MINUTES_PER_TICK);
+			backlog = Math.max(0, backlog + arrived - served);
+			history = [...history.slice(1), backlog];
+			render();
+		};
+
+		const start = () => {
+			if (timer) return;
+			timer = window.setInterval(tick, TICK_MS);
+		};
+
+		const stop = () => {
+			window.clearInterval(timer);
+			timer = 0;
+		};
+
+		arrivalInput.addEventListener('input', render);
+		workersInput.addEventListener('input', render);
+
+		toggle.addEventListener('click', () => {
+			running = !running;
+			toggle.textContent = running ? 'Pause' : 'Resume';
+			if (running) start();
+			else stop();
+		});
+
+		reset.addEventListener('click', () => {
+			backlog = 0;
+			history = new Array<number>(HISTORY).fill(0);
+			render();
+		});
+
+		render();
+
+		new IntersectionObserver(
+			(entries) => {
+				if (entries.some((entry) => entry.isIntersecting)) {
+					if (running) start();
+				} else {
+					stop();
+				}
+			},
+			{ threshold: 0.1 }
+		).observe(root);
+
+		document.addEventListener('visibilitychange', () => {
+			if (document.hidden) stop();
+			else if (running) start();
+		});
+	}
+
+	document.querySelectorAll<HTMLElement>('[data-sim]').forEach(init);
+</script>

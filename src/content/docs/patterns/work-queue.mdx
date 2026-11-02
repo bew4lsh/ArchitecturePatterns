@@ -6,6 +6,7 @@ sidebar:
 ---
 
 import Diagram from '../../../components/Diagram.astro';
+import WorkQueueSimulator from '../../../components/WorkQueueSimulator.astro';
 
 A work queue is the pattern behind every background job system: a producer writes a task to a queue, and a pool of interchangeable workers each take one task at a time. It is also the pattern people reach for without noticing they have, usually after giving a web request more work than a web request should do.
 
@@ -136,6 +137,14 @@ Seen as states rather than boxes, a message is only ever queued, in flight, or g
 </Diagram>
 
 Nothing in that structure scales a worker, so the queue absorbs the difference: while workers are saturated, the queue grows, and the work simply waits. That buffering is the whole benefit, and it is also the whole hazard — a growing queue is invisible work.
+
+### Watching the two rates
+
+Two numbers decide everything else on this page: how fast work arrives, and how fast the workers can finish it. Set them below and watch the depth of the queue follow.
+
+<WorkQueueSimulator />
+
+The straight line is the point. A queue that grows in a straight line is a rate mismatch, not a burst: no buffer size fixes it, and no amount of waiting drains it. Add workers, or shed work at the producer.
 
 ## Variants
 
