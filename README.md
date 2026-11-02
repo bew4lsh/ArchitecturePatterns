@@ -50,6 +50,20 @@ instead, because MDX cannot bundle one. Those live in `src/components/` —
 question — and read the same theme variables, so they follow light and dark mode with
 the rest of the page.
 
+## Sidebar
+
+`src/components/SidebarToggle.astro` adds a desktop-only button that folds the whole left
+column away, remembered in `localStorage`. Starlight has no header slot, so the button
+reaches the header through a one-line override of `SocialIcons` in
+`src/components/overrides/`. On narrow screens Starlight already turns the sidebar into a
+slide-over menu, and the button hides itself.
+
+The hiding is CSS rather than a copy of Starlight's sidebar markup: Starlight measures the
+sidebar *and* the space reserved for it from `--sl-sidebar-width`, so zeroing that one
+variable takes the sidebar out of the layout and leaves the rest of the grid, including
+the table of contents, working. The same rule widens `--sl-content-width` to `50rem` —
+those two numbers are what to change if the collapsed page reads too wide or too narrow.
+
 ## Deploying
 
 `.github/workflows/deploy.yml` builds and publishes the site on every push to `main`.
