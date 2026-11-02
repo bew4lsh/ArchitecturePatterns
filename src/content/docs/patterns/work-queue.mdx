@@ -7,6 +7,7 @@ sidebar:
 
 import Diagram from '../../../components/Diagram.astro';
 import WorkQueueSimulator from '../../../components/WorkQueueSimulator.astro';
+import CheckYourself from '../../../components/CheckYourself.astro';
 
 A work queue is the pattern behind every background job system: a producer writes a task to a queue, and a pool of interchangeable workers each take one task at a time. It is also the pattern people reach for without noticing they have, usually after giving a web request more work than a web request should do.
 
@@ -237,6 +238,27 @@ The straight line is the point. A queue that grows in a straight line is a rate 
 - **Unbounded downstream rate** — autoscaling consumers against queue depth without capping their aggregate rate onto the next dependency moves the overload one hop downstream, where it is harder to see.
 - **Wasted work** — a backlog makes it easy to process work that no longer matters. Give messages a deadline or a TTL, and let the worker discard expired ones rather than doing them carefully.
 - **Uneven workers** — round-robin dispatch is blind to task weight, so a queue of mixed-difficulty tasks leaves one worker saturated while others idle. Limiting each worker to one unacknowledged message at a time (`prefetch = 1`) fixes it by dispatching to whoever is free.
+
+### Check yourself
+
+<CheckYourself
+	question="Workers keep dying mid-task and the broker redelivers. What has to change before you add more workers?"
+	options={[
+		{
+			label: 'Add more workers',
+			feedback: 'More workers multiply the redeliveries too. Duplicates are not a capacity problem.',
+		},
+		{
+			label: 'Make the handler idempotent',
+			feedback: 'Right. Delivery is at-least-once, so a crash before the ack is normal rather than exceptional. The handler has to tolerate the same message twice.',
+			correct: true,
+		},
+		{
+			label: 'Raise the prefetch limit',
+			feedback: 'Prefetch raises how many messages each worker holds, so a death redelivers more of them, not fewer.',
+		},
+	]}
+/>
 
 ## When to reach for it
 
