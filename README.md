@@ -16,7 +16,7 @@ npm run preview  # serve the built site
 
 ## Adding a pattern page
 
-The steps, the eight-section frame every pattern page copies, and the house style are in
+The steps, the section frame every pattern page copies, and the house style are in
 [AGENTS.md](AGENTS.md). That is their single home, so a page added by hand and a page
 added by an agent end up the same shape.
 

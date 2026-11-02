@@ -3,12 +3,13 @@ title: Reading these pages
 description: The template every pattern page follows, and why.
 ---
 
-Every pattern page in this repo answers the same eight questions in the same order. That is deliberate: patterns are only comparable when they are described in the same frame, and the frame is what makes it possible to say "use this one here" rather than "this one is good".
+Every pattern page in this repo answers the same questions in the same order. That is deliberate: patterns are only comparable when they are described in the same frame, and the frame is what makes it possible to say "use this one here" rather than "this one is good".
 
 ## The template
 
 | Section              | The question it answers                                             |
 | -------------------- | ------------------------------------------------------------------- |
+| Also known as        | What else is this called, and which of those names name only part of it? |
 | Context              | What situation makes this pattern a candidate?                      |
 | Forces               | What is pulling in conflicting directions?                          |
 | Solution             | What is the structure, and what are its rules?                      |
@@ -17,6 +18,8 @@ Every pattern page in this repo answers the same eight questions in the same ord
 | Failure modes        | How does this pattern go wrong when it is applied carelessly?       |
 | When to reach for it | The decision rule, stated as a condition rather than a preference.  |
 | References           | Where the primary description lives.                                |
+
+The first section exists because people arrive at a pattern by whatever name they learned it under, and the names disagree. List every name in use, with the source that uses it, and say which of them name the whole arrangement and which name only a part: *competing consumers* is the consumer side of a work queue, not the work queue. A reader who searched for a different name should be able to confirm it in one line, and a reader who searched for the right one should find out that a neighbouring name is not the same thing.
 
 A pattern is not a recipe. It is a named resolution of a set of forces, and the name is only useful if everyone means the same structure by it. Writing the forces down before the structure is what keeps the name honest.
 

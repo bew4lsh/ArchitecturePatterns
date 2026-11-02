@@ -16,7 +16,7 @@ Starlight has its own documentation, separate from Astro's:
 2. **Fill in the frontmatter:** `title`, a one-sentence `description`, and
    `sidebar.order` for the page's position among the patterns. The sidebar generates
    itself from the directory, so nothing in `astro.config.mjs` needs touching.
-3. **Copy the eight `##` headings** from
+3. **Copy the `##` headings** from
    `src/content/docs/foundations/reading-patterns.md`, in order and word for word, and
    answer each one. `patterns/layered-architecture.mdx` is the tightest example of a
    finished page, and `patterns/work-queue.mdx` is the same shape with figures and an
@@ -29,7 +29,7 @@ Starlight has its own documentation, separate from Astro's:
    both colour schemes: a figure that breaks in dark mode still builds.
 
 The page is done when it builds, appears under Patterns in the sidebar, and carries the
-same eight headings, in the same order, as `reading-patterns.md`.
+same headings, in the same order, as `reading-patterns.md`.
 
 Pages under `foundations/` are reference rather than pattern pages and take the shape
 their subject needs.
@@ -68,7 +68,7 @@ Each of these is a choice that is not visible from the file it affects:
   page does, rather than silently choosing one.
 - **No filler.** No marketing adjectives, no sentence that restates its heading, no
   closing paragraph that repeats the page.
-- **Plain Markdown by default.** The eight sections, bold lead-ins and lists carry the
+- **Plain Markdown by default.** The sections, bold lead-ins and lists carry the
   page; reach for a component only when a figure has to move or answer back.
 
 ## Running the dev server
