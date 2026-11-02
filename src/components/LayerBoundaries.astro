@@ -6,7 +6,9 @@ const policies = [
 ];
 ---
 
-<fieldset class="boundaries" data-boundaries data-open="0">
+<!-- not-content opts this widget out of Starlight's prose spacing, which otherwise
+	     puts a margin between every adjacent child and staggers the marks below. -->
+<fieldset class="boundaries not-content" data-boundaries data-open="0">
 	<legend>Boundary policy</legend>
 
 	<div class="panel">
@@ -72,14 +74,14 @@ const policies = [
 		<div class="counter">
 			<span class="counter-label">Calls to read one record</span>
 			<span class="marks">
-				<i data-mark="calls" data-on></i><i data-mark="calls" data-on></i><i data-mark="calls" data-on></i>
+				<span data-mark="calls" data-on></span><span data-mark="calls" data-on></span><span data-mark="calls" data-on></span>
 			</span>
 			<span class="counter-value" data-value="calls">3</span>
 		</div>
 		<div class="counter">
 			<span class="counter-label">Layers presentation can reach</span>
 			<span class="marks">
-				<i data-mark="reach" data-on></i><i data-mark="reach"></i><i data-mark="reach"></i>
+				<span data-mark="reach" data-on></span><span data-mark="reach"></span><span data-mark="reach"></span>
 			</span>
 			<span class="counter-value" data-value="reach">1</span>
 		</div>
@@ -168,14 +170,14 @@ const policies = [
 		gap: 3px;
 	}
 
-	.marks i {
+	.marks span {
 		width: 10px;
 		height: 10px;
 		border: 1px solid var(--sl-color-gray-4);
 		border-radius: 2px;
 	}
 
-	.marks i[data-on] {
+	.marks span[data-on] {
 		border-color: var(--sl-color-accent);
 		background: var(--sl-color-accent);
 	}

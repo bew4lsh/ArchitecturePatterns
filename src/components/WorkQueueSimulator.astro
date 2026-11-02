@@ -13,7 +13,7 @@ const initialWorkers = 3;
 const initialCapacity = initialWorkers * servicePerWorker;
 ---
 
-<section class="sim" data-sim data-health="growing" data-service={servicePerWorker} aria-label="Queue depth simulator">
+<section class="sim not-content" data-sim data-health="growing" data-service={servicePerWorker} aria-label="Queue depth simulator">
 	<div class="controls">
 		<label class="control">
 			<span>Arrivals <b data-arrival-value>{initialArrival}</b> per minute</span>
@@ -47,7 +47,7 @@ const initialCapacity = initialWorkers * servicePerWorker;
 
 	<div class="readout">
 		<div class="bar" data-bar aria-hidden="true">
-			{cells.map(() => <i class="cell" />)}
+			{cells.map(() => <span class="cell" />)}
 		</div>
 		<p class="note" data-queue-note>empty</p>
 	</div>
@@ -56,7 +56,7 @@ const initialCapacity = initialWorkers * servicePerWorker;
 		<div class="workers" data-workers-list aria-hidden="true">
 			{workerSlots.map((_, index) => (
 				<span class="worker" data-worker hidden={index >= initialWorkers}>
-					<i class="worker-fill" data-worker-fill />
+					<span class="worker-fill" data-worker-fill />
 				</span>
 			))}
 		</div>
