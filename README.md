@@ -75,7 +75,7 @@ Enable it once under **Settings → Pages → Source → GitHub Actions**.
 
 The site is served from a subpath, so `base` is set in `astro.config.mjs`:
 
-- Markdown links are written root-relative (`/patterns/layered-architecture/`) and
+- Markdown links are written root-relative (`/messaging/work-queue/`) and
   get the base prefix at build time by `src/plugins/base-links.mjs`. Do not write the
   base path into prose.
 - Hero action links in frontmatter are not Markdown, so those carry the base path

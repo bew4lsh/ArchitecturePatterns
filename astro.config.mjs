@@ -34,7 +34,8 @@ export default defineConfig({
 			],
 			sidebar: [
 				{ label: 'Foundations', items: [{ autogenerate: { directory: 'foundations' } }] },
-				{ label: 'Patterns', items: [{ autogenerate: { directory: 'patterns' } }] },
+				{ label: 'Architecture styles', items: [{ autogenerate: { directory: 'styles' } }] },
+				{ label: 'Messaging', items: [{ autogenerate: { directory: 'messaging' } }] },
 			],
 		}),
 	],

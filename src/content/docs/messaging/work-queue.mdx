@@ -273,7 +273,7 @@ Reach for it when the work is independent, the caller can wait, and demand is bu
 
 Do not reach for it when the caller needs a synchronous low-latency answer — that is a different pattern, and adding a queue in front of a synchronous call mostly adds a timeout you now have to tune. Do not reach for it when volume is low and stable, where the queue is complexity that never pays for itself. Do not reach for it to get ordering: it takes ordering away by design.
 
-Also worth being clear about scope: this is not an alternative to a structural style like [Layered Architecture](/patterns/layered-architecture/). It says how work is distributed, not how an application is organised, and most systems that use it are also layered internally.
+Also worth being clear about scope: this is not an alternative to a structural style like [Layered Architecture](/styles/layered-architecture/). It says how work is distributed, not how an application is organised, and most systems that use it are also layered internally.
 
 ## References
 

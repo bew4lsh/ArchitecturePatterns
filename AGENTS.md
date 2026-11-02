@@ -11,15 +11,17 @@ Starlight has its own documentation, separate from Astro's:
 
 ## Adding a pattern page
 
-1. **Create `src/content/docs/patterns/<slug>.mdx`.** The filename is the URL and the
-   sidebar entry. Use `.md` instead when the page will hold no figure or component.
+1. **Create the page in its category's directory**, `src/content/docs/<category>/<slug>.mdx`.
+   The filename is the URL and the sidebar entry, and the directory is the category: the
+   sidebar turns each one into a group. Use `.md` instead of `.mdx` when the page will hold
+   no figure or component.
 2. **Fill in the frontmatter:** `title`, a one-sentence `description`, and
    `sidebar.order` for the page's position among the patterns. The sidebar generates
    itself from the directory, so nothing in `astro.config.mjs` needs touching.
 3. **Copy the `##` headings** from
    `src/content/docs/foundations/reading-patterns.md`, in order and word for word, and
-   answer each one. `patterns/layered-architecture.mdx` is the tightest example of a
-   finished page, and `patterns/work-queue.mdx` is the same shape with figures and an
+   answer each one. `styles/layered-architecture.mdx` is the tightest example of a
+   finished page, and `messaging/work-queue.mdx` is the same shape with figures and an
    interactive section. Patterns stay comparable only while the frame is identical, so a
    renamed or dropped heading is a bug in the page rather than a judgement call.
 4. **Write each section from the pattern's own sources** — the book chapter, the
@@ -31,8 +33,16 @@ Starlight has its own documentation, separate from Astro's:
 The page is done when it builds, appears under Patterns in the sidebar, and carries the
 same headings, in the same order, as `reading-patterns.md`.
 
-Pages under `foundations/` are reference rather than pattern pages and take the shape
-their subject needs.
+Pages under `foundations/` are reference rather than pattern pages and take the shape their
+subject needs.
+
+Categories are directories with no umbrella over them, because a style and a messaging pattern
+are different kinds of thing rather than two subjects inside one. `styles/` holds what Richards
+and Ford call an architecture style — it decides component topology, monolith against
+distributed, and deployment. `messaging/` holds a pattern for interaction between parts, which
+is what Enterprise Integration Patterns and Microsoft's cloud catalogues mean by the word. Add a
+category when a second page belongs in it, named as the sources name that concern; a one-page
+category is a label with nothing to sort.
 
 ## What is already decided
 
@@ -43,7 +53,7 @@ Each of these is a choice that is not visible from the file it affects:
   about.
 - **The site is served from a subpath** of a GitHub Pages site, so `base` is set in
   `astro.config.mjs` and `src/plugins/base-links.mjs` adds the prefix to root-relative
-  Markdown links at build time. Write internal links as `/patterns/<slug>/`. Hero action
+  Markdown links at build time. Write internal links root-relative, as `/messaging/work-queue/`. Hero action
   links in frontmatter are the one exception, because they are not Markdown, so they
   carry the full path and have to change if `base` ever does.
 - **A figure lives in the page it belongs to,** as hand-authored SVG rather than an image
