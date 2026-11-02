@@ -26,6 +26,8 @@ Two parts of that vocabulary are worth separating. **Layers are logical, tiers a
 
 Organise the code into horizontal layers, each with a single responsibility, and allow a layer to talk only to the one directly beneath it.
 
+The four layers below are the common modern shape: Presentation, Application, Domain, Persistence. The canonical description names four slightly different ones — Presentation, Business, Persistence, Database — and the difference is that the business layer is usually split into the orchestration and the rules, while the database stops being a layer of code and becomes a detail of persistence. Whatever the lines are called, the criterion for drawing them is the same, and Buschmann and others state it: group subtasks by level of abstraction, which in practice means the conceptual distance from the platform or the rate at which the code changes. Two things that change at the same rate, for the same reason, belong in one layer.
+
 <Diagram caption="Four closed layers. A request descends through each; nothing reaches across a layer.">
 
 <svg viewBox="0 0 680 430" role="img" aria-label="Four stacked layers — Presentation, Application, Domain, Persistence — with dependencies pointing downwards and a closed boundary marked between Presentation and Application.">
@@ -120,22 +122,27 @@ Rule 3 is the one people miss, and it is the difference between a layering that 
 - **Deployability** is unchanged: one unit, released together. Layering buys nothing here.
 - **Performance** gains a call hop per layer and a translation at each boundary. Usually noise; visible in tight loops and in mapping-heavy read paths.
 - **Onboarding** improves, genuinely. This is the pattern's most reliable payoff.
+- **Error handling** is a worse job than it looks, because a boundary is also the place an error stops being meaningful. Buschmann and others recommend handling each error in the lowest layer that can and translating it once on the way up; passing raw errors upward instead fills the top of the stack with defensive code that knows about details it has no business knowing.
 
 ## Failure modes
 
-- **The sinkhole** — every request is a pass-through with no logic in the middle layers. The layers are pure ceremony, and you are paying indirection for nothing.
-- **Layer leakage** — a domain entity with `@JsonProperty` annotations, or a repository returning `ResultSet`. Once a lower layer knows about an upper layer's format, the boundary is decorative.
+- **The sinkhole** — requests cross the middle layers as pass-through, with no logic performed inside them. Some pass-through is normal in any layered system, and Richards and Ford put the tolerable share at around 20% of requests. When that ratio inverts and most requests are pass-through, the layers are ceremony, and the two standard responses are to open a boundary or to stop paying for the style.
+- **Layer leakage** — a domain entity with `@JsonProperty` annotations, or a repository returning `ResultSet`. Once a lower layer knows about an upper layer's format, the boundary is decorative. The quieter version is a module of shared types that every layer imports: Buschmann and others treat that as relaxing strict layering, and it is how a strict diagram becomes only a diagram.
 - **Fat persistence** — business rules migrating into stored procedures or ORM hooks, because that is where the data is.
-- **Skipped layers by convention drift** — "just this once" from Presentation to Persistence, and then the diagram becomes a lie.
+- **Skipped layers by convention drift** — nobody decided to open a boundary; it simply became normal, "just this once" at a time, and the diagram became a lie. The difference between an open layer and a leak is that the open one is written down and the leak is not.
 
 ## When to reach for it
 
 Reach for it when the domain is rule-heavy, the team is more than one person, and the system ships as a single unit. It is the right default precisely because it is cheap and because it fails loudly: a sinkhole is visible in a diff, whereas a distributed mess is not.
 
+Richards and Ford make the same recommendation from the other end: when you do not yet know which style fits, this is the one that is cheapest to be wrong about. The sinkhole ratio is what tells you that you were.
+
 Do not reach for it when the application is mostly CRUD over a database — that is where the sinkhole comes from — or when you are already paying for a distributed system, where the layering should follow the services instead.
 
 ## References
 
-- Richards & Ford, *Fundamentals of Software Architecture*, ch. 10 — "Layered Architecture".
-- Fowler, *Patterns of Enterprise Application Architecture* — "Layers".
-- Cockburn, *Hexagonal Architecture* (2005) — the same idea with I/O at the edges.
+- Richards & Ford, *Fundamentals of Software Architecture*, ch. 10 — "Layered Architecture", which also calls it n-tiered. The sinkhole anti-pattern and the 20% heuristic are from their shorter [*Software Architecture Patterns*](https://www.oreilly.com/content/software-architecture-patterns/).
+- Buschmann, Meunier, Rohnert, Sommerlad & Stal, *Pattern-Oriented Software Architecture*, vol. 1, ch. 2 — "Layers": the abstraction criterion, strict separation, and error handling by layer.
+- Fowler, *Patterns of Enterprise Application Architecture*, and [Presentation Domain Data Layering](https://martinfowler.com/bliki/PresentationDomainDataLayering.html) — the three-layer split this style is usually drawn with, and the reason for it.
+- Microsoft, [N-tier architecture style](https://learn.microsoft.com/en-us/azure/architecture/guide/architecture-styles/n-tier) — the clearest short statement of layers against tiers, and of open against closed.
+- Cockburn, [Hexagonal Architecture](https://alistair.cockburn.us/hexagonal-architecture) — the inside/outside alternative, by the author of the pattern.
