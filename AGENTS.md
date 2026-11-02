@@ -40,9 +40,15 @@ Categories are directories with no umbrella over them, because a style and a mes
 are different kinds of thing rather than two subjects inside one. `styles/` holds what Richards
 and Ford call an architecture style — it decides component topology, monolith against
 distributed, and deployment. `messaging/` holds a pattern for interaction between parts, which
-is what Enterprise Integration Patterns and Microsoft's cloud catalogues mean by the word. Add a
-category when a second page belongs in it, named as the sources name that concern; a one-page
-category is a label with nothing to sort.
+is what Enterprise Integration Patterns and Microsoft's cloud catalogues mean by the word.
+`presentation/` holds patterns for organising an interface, the family Fowler groups as web
+presentation patterns and Buschmann as application control.
+
+Add a category when a page's concern is not covered by an existing one and the sources give that
+concern a name and more than one member; MVC arrives alone in `presentation/` and that is fine,
+because the family it belongs to has a name and a known set of relatives. What is not fine is a
+bucket named after nothing in particular. The directory is a URL segment, so a page that becomes
+homeless later is a move and a redirect rather than an edit.
 
 ## What is already decided
 
