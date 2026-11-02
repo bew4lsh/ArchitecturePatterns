@@ -38,6 +38,16 @@ Colour the SVG with Starlight's theme variables (`var(--sl-color-gray-6)`,
 `fill="var(--x)"` do not support custom properties, so dark mode breaks if you use
 them.
 
+Keep an element's text on the same line as its tags. MDX parses multi-line content as
+markdown and wraps it in a `<p>`, and a `<p>` inside an `<svg>` is not valid, so the
+browser closes the SVG right there: every bar and line after it renders as nothing and
+the labels reflow as paragraphs. The page still builds and the markup still looks fine in
+the source, so `npm run build` checks for it and fails instead.
+
+```mdx
+<text x="22" y="209">dependency direction</text>
+```
+
 A figure that changes on the reader's input is an Astro component with a `<script>`
 instead, because MDX cannot bundle one. Those live in `src/components/` —
 `WorkQueueSimulator.astro` draws the live rate figure and `CheckYourself.astro` asks a
