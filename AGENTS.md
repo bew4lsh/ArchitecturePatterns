@@ -1,40 +1,78 @@
-## Development
+# Working in this repo
 
-When starting the dev server, use background mode:
+Self-study notes on software architecture patterns, published as a static site on GitHub
+Pages from `main`.
 
-```
-astro dev --background
-```
+`README.md` is the reference for how the site is built, run and deployed, and for the
+mechanics of figures and the sidebar. This file is what to write and how to add a page.
+Starlight has its own documentation, separate from Astro's:
+[starlight.astro.build](https://starlight.astro.build) and
+[docs.astro.build](https://docs.astro.build).
 
-Manage the background server with `astro dev stop`, `astro dev status`, and `astro dev logs`.
+## Adding a pattern page
 
-## Documentation
+1. **Create `src/content/docs/patterns/<slug>.mdx`.** The filename is the URL and the
+   sidebar entry. Use `.md` instead when the page will hold no figure or component.
+2. **Fill in the frontmatter:** `title`, a one-sentence `description`, and
+   `sidebar.order` for the page's position among the patterns. The sidebar generates
+   itself from the directory, so nothing in `astro.config.mjs` needs touching.
+3. **Copy the eight `##` headings** from
+   `src/content/docs/foundations/reading-patterns.md`, in order and word for word, and
+   answer each one. `patterns/layered-architecture.mdx` is the tightest example of a
+   finished page, and `patterns/work-queue.mdx` is the same shape with figures and an
+   interactive section. Patterns stay comparable only while the frame is identical, so a
+   renamed or dropped heading is a bug in the page rather than a judgement call.
+4. **Write each section from the pattern's own sources** — the book chapter, the
+   vendor's pattern page, the specification — and list them under `## References`. A
+   tradeoff or failure mode that no source describes is one nobody has checked.
+5. **Build it and look at it.** Run `npm run build`, then open the page in a browser in
+   both colour schemes: a figure that breaks in dark mode still builds.
 
-Full documentation: https://docs.astro.build
+The page is done when it builds, appears under Patterns in the sidebar, and carries the
+same eight headings, in the same order, as `reading-patterns.md`.
 
-Consult these guides before working on related tasks:
+Pages under `foundations/` are reference rather than pattern pages and take the shape
+their subject needs.
 
-- [Adding pages, dynamic routes, or middleware](https://docs.astro.build/en/guides/routing/)
-- [Working with Astro components](https://docs.astro.build/en/basics/astro-components/)
-- [Using React, Vue, Svelte, or other framework components](https://docs.astro.build/en/guides/framework-components/)
-- [Adding or managing content](https://docs.astro.build/en/guides/content-collections/)
-- [Adding styles or using Tailwind](https://docs.astro.build/en/guides/styling/)
-- [Supporting multiple languages](https://docs.astro.build/en/guides/internationalization/)
+## What is already decided
 
-## Content conventions
+Each of these is a choice that is not visible from the file it affects:
 
-Pattern pages live in `src/content/docs/patterns/` and follow the eight-section
-structure documented in `src/content/docs/foundations/reading-patterns.md`. Match it:
-the value of these notes is that patterns stay comparable.
+- **Starlight, with the Flexoki theme and a single accent colour.** The theme is built for
+  long-form reading, and the accent marks the one thing in a figure that the prose is
+  about.
+- **The site is served from a subpath** of a GitHub Pages site, so `base` is set in
+  `astro.config.mjs` and `src/plugins/base-links.mjs` adds the prefix to root-relative
+  Markdown links at build time. Write internal links as `/patterns/<slug>/`. Hero action
+  links in frontmatter are the one exception, because they are not Markdown, so they
+  carry the full path and have to change if `base` ever does.
+- **A figure lives in the page it belongs to,** as hand-authored SVG rather than an image
+  or a drawing tool, so that the picture and the prose change in the same commit. When a
+  figure needs a script it becomes an Astro component in `src/components/` instead, since
+  MDX cannot bundle one.
+- **The sidebar can fold away on desktop** — `SidebarToggle.astro`, which reaches the
+  header through a one-line `SocialIcons` override. It works by zeroing Starlight's
+  `--sl-sidebar-width`, so widths come from Starlight's variables rather than from
+  hard-coded numbers.
+- **Two warnings on every build** — `The collection "i18n" does not exist or is empty`
+  and `Entry docs → 404 was not found` — are Starlight asking for optional content this
+  repo does not define. They are expected, and they are not this repo's to fix.
 
-Write internal links root-relative and without the base path — `base-links.mjs` applies
-it at build time. The one exception is hero action links in frontmatter, which are not
-Markdown and must carry the base path themselves.
+## House style
 
-Diagrams are hand-authored inline SVG framed by `Diagram.astro`, coloured through
-Starlight theme variables in a `style` attribute (`fill="var(--x)"` does not work).
-Keep a diagram in the page that explains it.
+- **State the trade, not the benefit.** A `## Tradeoffs` entry says what gets worse, and
+  for whom. A `## Failure modes` entry names the symptom an operator would see, not the
+  abstraction.
+- **Let the sources disagree where they disagree.** Where catalogues name the same thing
+  differently, record the aliases and which source uses which, the way the work queue
+  page does, rather than silently choosing one.
+- **No filler.** No marketing adjectives, no sentence that restates its heading, no
+  closing paragraph that repeats the page.
+- **Plain Markdown by default.** The eight sections, bold lead-ins and lists carry the
+  page; reach for a component only when a figure has to move or answer back.
 
-A figure that changes on the reader's input is an Astro component with a `<script>` in
-`src/components/` instead, because MDX cannot bundle one. Components read the same
-theme variables, so light and dark mode keep working.
+## Running the dev server
+
+`astro dev --background`, then `astro dev status`, `astro dev logs` and
+`astro dev stop`. The server serves the site under its `base` path, so pages live at
+`/ArchitecturePatterns/<slug>/`.

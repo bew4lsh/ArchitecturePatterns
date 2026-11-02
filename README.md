@@ -16,15 +16,9 @@ npm run preview  # serve the built site
 
 ## Adding a pattern page
 
-Create a Markdown or MDX file in `src/content/docs/patterns/` and it appears in the
-sidebar automatically, ordered by the `sidebar.order` frontmatter field.
-
-Every pattern page follows the same eight sections, described in
-[Reading these pages](src/content/docs/foundations/reading-patterns.md): context,
-forces, solution, variants, tradeoffs, failure modes, when to reach for it,
-references. Keeping the frame identical is what makes two patterns comparable.
-
-Use `.mdx` when the page needs a diagram or component, and `.md` otherwise.
+The steps, the eight-section frame every pattern page copies, and the house style are in
+[AGENTS.md](AGENTS.md). That is their single home, so a page added by hand and a page
+added by an agent end up the same shape.
 
 ## Diagrams
 
