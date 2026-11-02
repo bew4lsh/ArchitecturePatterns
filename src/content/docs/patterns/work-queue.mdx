@@ -11,13 +11,20 @@ import CheckYourself from '../../../components/CheckYourself.astro';
 
 A work queue is the pattern behind every background job system: a producer writes a task to a queue, and a pool of interchangeable workers each take one task at a time. It is also the pattern people reach for without noticing they have, usually after giving a web request more work than a web request should do.
 
+## Also known as
+
+There is no settled name for this one, because each of the names in use describes a different part of it.
+
+- **Work queue**, also **task queue** — RabbitMQ's tutorial, and the name this page uses.
+- **Competing consumers** — Enterprise Integration Patterns' name for the consumer side: several consumers drawing from one point-to-point channel. It names a part of the arrangement, not the arrangement.
+- **Queue-based load leveling** — Microsoft's name for the same shape with the emphasis on protecting a downstream dependency from bursts.
+- **Web-queue-worker** — Microsoft's name for the architecture style this becomes when it is the spine of the system rather than one seam in it.
+
 ## Context
 
 Work arrives as units that are independent of one another — resize this image, send that email, recompute this report. The caller does not need the result to continue, and the work is heavier than the request that triggers it.
 
 Two rates are now in play, and they are not the same rate. Requests arrive in bursts; work is consumed at whatever rate workers can manage.
-
-This pattern is named in several places under different names, because each describes a different part of it. RabbitMQ's tutorial calls it a **work queue**, also **task queue**. Enterprise Integration Patterns describes the consumer side as **competing consumers**. Microsoft's catalog splits it into **Queue-Based Load Leveling** for the burst-buffering framing and names the resulting architecture style **web-queue-worker**. There is no single settled name, so this page uses the mechanism's.
 
 ## Forces
 
