@@ -89,6 +89,52 @@ Step 4 is the part that makes the pattern worth its complexity, and step 4 is al
 
 </Diagram>
 
+Seen as states rather than boxes, a message is only ever queued, in flight, or gone. Taking a message off the queue does not remove it — the ack does. That gap is where the whole delivery contract lives.
+
+<Diagram caption="One message, three states. The two red edges are the failures the rest of this page is about: the lease expires and a second worker repeats the work, or the attempts run out and the message is parked.">
+
+<svg viewBox="0 0 760 280" role="img" aria-label="A message moves from queued to in flight to done. If the lease expires it returns to queued; if the attempts run out it goes to a dead-letter queue.">
+	<defs>
+		<marker id="wq-life-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+			<path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--sl-color-gray-3)" />
+		</marker>
+		<marker id="wq-life-ack" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+			<path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--sl-color-accent)" />
+		</marker>
+		<marker id="wq-life-fail" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+			<path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--sl-color-red)" />
+		</marker>
+	</defs>
+
+	<path d="M380 160 L380 196 L105 196 L105 164" style="fill:none;stroke:var(--sl-color-red)" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#wq-life-fail)" />
+	<path d="M410 160 L410 228 L575 228" style="fill:none;stroke:var(--sl-color-red)" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#wq-life-fail)" />
+	<line x1="180" y1="128" x2="299" y2="128" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#wq-life-arrow)" />
+	<line x1="455" y1="128" x2="575" y2="128" style="stroke:var(--sl-color-accent)" stroke-width="1.5" marker-end="url(#wq-life-ack)" />
+
+	<rect x="30" y="96" width="150" height="64" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="105" y="124" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:15px;font-weight:600">Queued</text>
+	<text x="105" y="144" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">waiting for a worker</text>
+
+	<rect x="305" y="96" width="150" height="64" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="380" y="124" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:15px;font-weight:600">In flight</text>
+	<text x="380" y="144" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">leased to one worker</text>
+
+	<rect x="580" y="96" width="150" height="64" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="655" y="124" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:15px;font-weight:600">Done</text>
+	<text x="655" y="144" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">acked and deleted</text>
+
+	<rect x="580" y="196" width="150" height="64" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="655" y="224" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:15px;font-weight:600">Dead-letter</text>
+	<text x="655" y="244" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">parked for a human</text>
+
+	<text x="237" y="120" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">deliver</text>
+	<text x="513" y="120" text-anchor="middle" style="fill:var(--sl-color-accent);font-size:11px">ack</text>
+	<text x="242" y="190" text-anchor="middle" style="fill:var(--sl-color-red);font-size:11px">lease expires, attempts +1</text>
+	<text x="492" y="222" text-anchor="middle" style="fill:var(--sl-color-red);font-size:11px">attempts exhausted</text>
+</svg>
+
+</Diagram>
+
 Nothing in that structure scales a worker, so the queue absorbs the difference: while workers are saturated, the queue grows, and the work simply waits. That buffering is the whole benefit, and it is also the whole hazard — a growing queue is invisible work.
 
 ## Variants
