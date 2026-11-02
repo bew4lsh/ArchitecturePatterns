@@ -7,13 +7,21 @@ sidebar:
 
 import Diagram from '../../../components/Diagram.astro';
 
+## Also known as
+
+The names agree, and differ only in who is talking.
+
+- **Layered architecture**, also **n-tiered** — Richards and Ford, and the name this page uses.
+- **Layers** — Buschmann and others, for the general form.
+- **N-tier** — Microsoft's catalogue.
+
+One distinction hides inside that vocabulary: **layers are logical, tiers are physical.** A layer is a group of code with a dependency rule; a tier is a machine boundary. "N-tiered" names the logical style from an era when each layer had its own box, so a layered monolith and a four-machine deployment are the same style with the tiers switched on.
+
 ## Context
 
 You are building a business application — a system whose complexity lives in rules rather than in algorithms. It has a user interface, some domain logic, and some persistence, and the team is small enough that everyone works in the same codebase. Nothing yet forces the pieces apart.
 
-The style carries three names for the same arrangement. Richards and Ford call it the **layered architecture**, also **n-tiered**; Buschmann and others, in *Pattern-Oriented Software Architecture*, call the general form **Layers**; Microsoft's catalogue calls the style **N-tier**. The names agree, and this page uses the first.
-
-Two parts of that vocabulary are worth separating. **Layers are logical, tiers are physical:** a layer is a group of code with a dependency rule, a tier is a machine boundary, and "n-tiered" names the logical style from an era when each layer had its own box. A layered monolith and a four-machine deployment are the same style with the tiers switched on. And this is the style a system arrives at **by default** — Richards and Ford observe that a team which starts coding without choosing a style usually lands here, which they name *architecture by implication*.
+This is also the style a system arrives at **by default**: Richards and Ford observe that a team which starts coding without choosing a style usually lands here, which they name *architecture by implication*.
 
 ## Forces
 
