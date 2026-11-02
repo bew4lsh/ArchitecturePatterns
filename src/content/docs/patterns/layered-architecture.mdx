@@ -6,6 +6,7 @@ sidebar:
 ---
 
 import Diagram from '../../../components/Diagram.astro';
+import LayerBoundaries from '../../../components/LayerBoundaries.astro';
 
 ## Also known as
 
@@ -122,6 +123,12 @@ Rule 3 is the one people miss, and it is the difference between a layering that 
 - **Strict layers** — every boundary closed. What this page describes, and the version that ages best.
 - **Open layers**, also called **relaxed layers** — a layer that requests may skip on the way down, so Presentation may call Domain directly for a simple read. One open boundary for a shared utility or a read path is the usual dose. It is also the standard escape from a sinkhole, which is why open boundaries tend to spread: each one is locally cheap and only expensive in aggregate.
 - **Ports and adapters** — Rule 3 promoted from exception to organising idea: the application sits inside, everything external sits outside, and they meet at ports the inside defines. Cockburn, who named it, is explicit that this is not a rotated stack — the asymmetry worth drawing is inside and outside rather than up and down, and the stacked picture is what he set out to get away from, because it invites logic to leak across the lines. The dependency inversion is the part that carries over; the layers are the part he drops.
+
+### What an open boundary trades
+
+Opening a boundary is the one decision this style asks you to make repeatedly, and it is a trade rather than a fix. Each boundary you open shortens the calls a request makes, and lengthens the list of interfaces the top of the stack can be broken by.
+
+<LayerBoundaries />
 
 ## Tradeoffs
 

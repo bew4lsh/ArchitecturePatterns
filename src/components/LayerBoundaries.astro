@@ -1,0 +1,275 @@
+---
+const policies = [
+	{ value: '0', label: 'Every boundary closed' },
+	{ value: '1', label: 'Application open' },
+	{ value: '2', label: 'Application and Domain open' },
+];
+---
+
+<fieldset class="boundaries" data-boundaries data-open="0">
+	<legend>Boundary policy</legend>
+
+	<div class="panel">
+		<div class="choices">
+		{
+			policies.map((policy, index) => (
+				<label class="choice">
+					<input type="radio" name="layered-boundary-policy" value={policy.value} checked={index === 0} />
+					<span>{policy.label}</span>
+				</label>
+			))
+		}
+	</div>
+
+	<div class="frame">
+		<svg viewBox="0 0 760 400" role="img" aria-label="Four stacked layers — Presentation, Application, Domain and Persistence — with a boundary between each pair. A request descends through every layer while the boundaries are closed, and reaches past one when it is opened.">
+			<defs>
+				<marker id="boundary-descend" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+					<path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--sl-color-gray-3)" />
+				</marker>
+				<marker id="boundary-skip" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+					<path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--sl-color-accent)" />
+				</marker>
+			</defs>
+
+			<line data-wall="0" x1="60" y1="108" x2="440" y2="108" style="stroke:var(--sl-color-accent)" stroke-width="1.5" stroke-dasharray="6 5" />
+			<line data-wall="1" x1="60" y1="202" x2="440" y2="202" style="stroke:var(--sl-color-accent)" stroke-width="1.5" stroke-dasharray="6 5" />
+			<line data-wall="2" x1="60" y1="296" x2="440" y2="296" style="stroke:var(--sl-color-accent)" stroke-width="1.5" stroke-dasharray="6 5" />
+
+			<path data-skip="1" d="M440 61H520V249H446" style="fill:none;stroke:var(--sl-color-accent)" stroke-width="1.5" marker-end="url(#boundary-skip)" />
+			<path data-skip="2" d="M440 61H600V343H446" style="fill:none;stroke:var(--sl-color-accent)" stroke-width="1.5" marker-end="url(#boundary-skip)" />
+
+			<line x1="250" y1="92" x2="250" y2="120" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#boundary-descend)" />
+			<line x1="250" y1="186" x2="250" y2="214" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#boundary-descend)" />
+			<line x1="250" y1="280" x2="250" y2="308" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#boundary-descend)" />
+
+			<rect x="60" y="30" width="380" height="62" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+			<text x="250" y="58" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:16px;font-weight:600">Presentation</text>
+			<text x="250" y="78" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">controllers, views, CLI</text>
+
+			<rect data-couples="0" x="60" y="124" width="380" height="62" rx="8" style="fill:var(--sl-color-gray-6)" />
+			<text x="250" y="152" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:16px;font-weight:600">Application</text>
+			<text x="250" y="172" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">use cases, orchestration</text>
+
+			<rect data-couples="1" x="60" y="218" width="380" height="62" rx="8" style="fill:var(--sl-color-gray-6)" />
+			<text x="250" y="246" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:16px;font-weight:600">Domain</text>
+			<text x="250" y="266" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">entities, business rules</text>
+
+			<rect data-couples="2" x="60" y="312" width="380" height="62" rx="8" style="fill:var(--sl-color-gray-6)" />
+			<text x="250" y="340" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:16px;font-weight:600">Persistence</text>
+			<text x="250" y="360" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">repositories, mappers</text>
+
+			<text data-label="closed" data-boundary="0" x="452" y="112" style="fill:var(--sl-color-gray-3);font-size:11px">closed</text>
+			<text data-label="open" data-boundary="0" x="452" y="112" style="fill:var(--sl-color-accent);font-size:11px">open</text>
+			<text data-label="closed" data-boundary="1" x="452" y="206" style="fill:var(--sl-color-gray-3);font-size:11px">closed</text>
+			<text data-label="open" data-boundary="1" x="452" y="206" style="fill:var(--sl-color-accent);font-size:11px">open</text>
+			<text data-label="closed" data-boundary="2" x="452" y="300" style="fill:var(--sl-color-gray-3);font-size:11px">closed</text>
+			<text data-label="open" data-boundary="2" x="452" y="300" style="fill:var(--sl-color-accent);font-size:11px">open</text>
+		</svg>
+	</div>
+
+	<div class="counters">
+		<div class="counter">
+			<span class="counter-label">Calls to read one record</span>
+			<span class="marks">
+				<i data-mark="calls" data-on></i><i data-mark="calls" data-on></i><i data-mark="calls" data-on></i>
+			</span>
+			<span class="counter-value" data-value="calls">3</span>
+		</div>
+		<div class="counter">
+			<span class="counter-label">Layers presentation can reach</span>
+			<span class="marks">
+				<i data-mark="reach" data-on></i><i data-mark="reach"></i><i data-mark="reach"></i>
+			</span>
+			<span class="counter-value" data-value="reach">1</span>
+		</div>
+	</div>
+
+		<div class="verdicts" aria-live="polite">
+			<p data-verdict="0">Three calls before the record exists. Presentation can only be broken by the Application interface.</p>
+			<p data-verdict="1">Two calls, and presentation now names the Domain interface too, so a change there reaches the top of the stack.</p>
+			<p data-verdict="2">One call, and persistence's shape is now visible from the top of the stack. The shortcut has become the architecture.</p>
+		</div>
+	</div>
+</fieldset>
+
+<style>
+	.boundaries {
+		margin: 2rem 0;
+		padding: 0;
+		border: 0;
+	}
+
+	legend {
+		padding: 0;
+		margin-bottom: 0.5rem;
+		font-size: 0.75rem;
+		color: var(--sl-color-gray-3);
+	}
+
+	.panel {
+		display: grid;
+		gap: 1rem;
+		padding: 1.25rem;
+		border: 1px solid var(--sl-color-gray-4);
+		border-radius: 0.75rem;
+		background: var(--sl-color-gray-6);
+	}
+
+	.choices {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.choice {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.35rem 0.7rem;
+		border: 1px solid var(--sl-color-gray-4);
+		border-radius: 0.375rem;
+		color: var(--sl-color-gray-2);
+		font-size: 0.8125rem;
+		cursor: pointer;
+	}
+
+	.choice:has(input:checked) {
+		border-color: var(--sl-color-accent);
+		color: var(--sl-color-gray-1);
+	}
+
+	.choice input {
+		accent-color: var(--sl-color-accent);
+	}
+
+	.frame svg {
+		display: block;
+		width: 100%;
+		height: auto;
+	}
+
+	.counters {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem 2rem;
+	}
+
+	.counter {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		font-size: 0.75rem;
+		color: var(--sl-color-gray-3);
+	}
+
+	.marks {
+		display: inline-flex;
+		gap: 3px;
+	}
+
+	.marks i {
+		width: 10px;
+		height: 10px;
+		border: 1px solid var(--sl-color-gray-4);
+		border-radius: 2px;
+	}
+
+	.marks i[data-on] {
+		border-color: var(--sl-color-accent);
+		background: var(--sl-color-accent);
+	}
+
+	.counter-value {
+		font-size: 0.9375rem;
+		color: var(--sl-color-gray-1);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.verdicts p {
+		margin: 0;
+		font-size: 0.9375rem;
+		color: var(--sl-color-gray-1);
+	}
+
+	[data-skip],
+	[data-label='open'],
+	[data-verdict='1'],
+	[data-verdict='2'] {
+		display: none;
+	}
+
+	[data-couples='1'],
+	[data-couples='2'] {
+		stroke: var(--sl-color-gray-4);
+	}
+
+	[data-couples='0'] {
+		stroke: var(--sl-color-accent);
+	}
+
+	[data-open='1'] [data-skip='1'],
+	[data-open='1'] [data-label='open'][data-boundary='0'],
+	[data-open='1'] [data-verdict='1'] {
+		display: block;
+	}
+
+	[data-open='1'] [data-verdict='0'],
+	[data-open='1'] [data-wall='0'],
+	[data-open='1'] [data-label='closed'][data-boundary='0'] {
+		display: none;
+	}
+
+	[data-open='1'] [data-couples='1'] {
+		stroke: var(--sl-color-accent);
+	}
+
+	[data-open='2'] [data-skip],
+	[data-open='2'] [data-label='open'][data-boundary='0'],
+	[data-open='2'] [data-label='open'][data-boundary='1'],
+	[data-open='2'] [data-verdict='2'] {
+		display: block;
+	}
+
+	[data-open='2'] [data-verdict='0'],
+	[data-open='2'] [data-wall='0'],
+	[data-open='2'] [data-wall='1'],
+	[data-open='2'] [data-label='closed'][data-boundary='0'],
+	[data-open='2'] [data-label='closed'][data-boundary='1'] {
+		display: none;
+	}
+
+	[data-open='2'] [data-couples='1'],
+	[data-open='2'] [data-couples='2'] {
+		stroke: var(--sl-color-accent);
+	}
+</style>
+
+<script>
+	const CALLS = ['3', '2', '1'];
+	const REACH = ['1', '2', '3'];
+
+	document.querySelectorAll<HTMLElement>('[data-boundaries]').forEach((root) => {
+		const callsValue = root.querySelector('[data-value="calls"]');
+		const reachValue = root.querySelector('[data-value="reach"]');
+		const callMarks = root.querySelectorAll('[data-mark="calls"]');
+		const reachMarks = root.querySelectorAll('[data-mark="reach"]');
+
+		const apply = (open: string) => {
+			root.dataset.open = open;
+			if (callsValue) callsValue.textContent = CALLS[Number(open)];
+			if (reachValue) reachValue.textContent = REACH[Number(open)];
+			callMarks.forEach((mark, index) => mark.toggleAttribute('data-on', index < Number(CALLS[Number(open)])));
+			reachMarks.forEach((mark, index) => mark.toggleAttribute('data-on', index < Number(REACH[Number(open)])));
+		};
+
+		root.querySelectorAll<HTMLInputElement>('input[type="radio"]').forEach((input) => {
+			input.addEventListener('change', () => {
+				if (input.checked) apply(input.value);
+			});
+		});
+
+		const checked = root.querySelector<HTMLInputElement>('input[type="radio"]:checked');
+		apply(checked?.value ?? root.dataset.open ?? '0');
+	});
+</script>
