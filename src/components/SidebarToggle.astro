@@ -110,12 +110,14 @@ const label = 'Hide the sidebar';
 	}
 
 	@media screen and (min-width: 50em) {
-		/* Starlight measures the sidebar and the space reserved for it from this one
-		   variable, so zeroing it is how a sidebar leaves the layout; Starlight does the
-		   same when printing. The width is the page's reading measure, widened because the
-		   sidebar is no longer taking a share of the screen. */
+		/* The sidebar is a fixed pane, and the space it occupies is a padding on the main frame
+		   driven by this one variable. Zeroing it hands the column back to the page.
+		   `--sl-sidebar-width` stays at its real value: the table of contents sizes its column
+		   and its own inner container from it, and a zero there leaves the contents collapsed
+		   to a sliver of stacked letters. The reading measure widens, since the sidebar is no
+		   longer taking a share of the screen. */
 		:global(html[data-sidebar='hidden'][data-has-sidebar]) {
-			--sl-sidebar-width: 0px;
+			--sl-content-inline-start: 0px;
 			--sl-content-width: 50rem;
 		}
 
@@ -123,8 +125,8 @@ const label = 'Hide the sidebar';
 			display: none;
 		}
 
-		/* With the sidebar gone the text column is centred in the space that is left
-		   instead of being pushed against the table of contents. */
+		/* With the sidebar gone the text column is centred in the space that is left instead of
+		   being pushed against the table of contents. */
 		:global(html[data-sidebar='hidden'][data-has-sidebar][data-has-toc] .main-pane) {
 			--sl-content-margin-inline: auto;
 		}
