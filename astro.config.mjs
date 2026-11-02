@@ -36,6 +36,7 @@ export default defineConfig({
 				{ label: 'Foundations', items: [{ autogenerate: { directory: 'foundations' } }] },
 				{ label: 'Architecture styles', items: [{ autogenerate: { directory: 'styles' } }] },
 				{ label: 'Messaging', items: [{ autogenerate: { directory: 'messaging' } }] },
+				{ label: 'Presentation', items: [{ autogenerate: { directory: 'presentation' } }] },
 			],
 		}),
 	],

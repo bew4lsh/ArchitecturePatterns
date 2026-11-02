@@ -1,0 +1,161 @@
+---
+title: Model-View-Controller
+description: Three roles and a change-propagation mechanism — and why what a web framework calls MVC is usually neither.
+sidebar:
+  order: 1
+---
+
+import Diagram from '../../../components/Diagram.astro';
+
+## Also known as
+
+- **MVC** — the name Reenskaug settled on in his December 1979 note, after Adele Goldberg argued him out of his first set.
+- **Thing-Model-View-Editor** — his first name for it, from May 1979. The *thing* was whatever the user cared about; the *editor* did what the controller later did.
+- **Model 2** — the web variant, from the early JSP specifications: a controller interrupts the request and decides which page renders next.
+- **MTV** — Django's name for the same thing, because in Django the word "view" means the request callback and the word "controller" means the framework's URL dispatch.
+- **Presentation Model** and **MVVM** — descendants that replace the controller with data binding, and are named separately rather than as MVC.
+
+## Context
+
+An interactive application where the same data is watched and edited in more than one place, and has to stay consistent while it changes. Reenskaug was solving exactly that: giving users control over a large and complex data set, seen from multiple perspectives at once.
+
+The force that creates the pattern is the second view. One view of one model needs no mechanism; two views that must agree need somewhere for the agreement to live.
+
+## Forces
+
+- **The functional core has to survive the interface.** Buschmann and others state the problem as user interfaces that "support adaptation and change without affecting the application's functional core".
+- **Several views of one model must agree.** Edit the data through one view and the others are now wrong until something tells them.
+- **Input is not display.** Reenskaug's note is explicit that a view should never know about user input such as keystrokes; that is what the third role is for.
+- **The model must not know about the screen.** Otherwise the core cannot be exercised without one.
+- **The mechanism has a price.** Buschmann's own consequences list includes increased structural and dynamic complexity, and a potential loss of performance.
+
+## Solution
+
+Divide the interactive part of the application into three roles, and add one mechanism to keep them honest.
+
+1. **The model** holds the core data and behaviour, and knows nothing about how it is displayed. It also keeps a registry of the parts that want to hear about changes.
+2. **A view** displays one presentation of the model. It reads the model's data and renders it. It has an `update` procedure, which the registry calls.
+3. **A controller** receives input events, translates them into service requests on the model, and is associated one-to-one with a view. A controller whose behaviour depends on model state — a menu item that enables itself — registers for notification too.
+
+The mechanism is the fourth thing, and it is the pattern: **when the model changes it notifies its registered views, and each view then pulls the current data and redraws.** Buschmann describes that change propagation as the pattern's Publisher-Subscriber link, and calls it the only link between the model and the views and controllers.
+
+<Diagram caption="One model, two views, and the notification edge that keeps them agreeing. Take that edge away and the three boxes are just three names.">
+
+<svg viewBox="0 0 760 380" role="img" aria-label="A model with two views and a controller. The model notifies each view when it changes; each view reads data from the model; the controller turns input events into service requests on the model and can update the display.">
+	<defs>
+		<marker id="mvc-notify" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+			<path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--sl-color-accent)" />
+		</marker>
+		<marker id="mvc-call" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+			<path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--sl-color-gray-3)" />
+		</marker>
+	</defs>
+
+	<line x1="280" y1="60" x2="424" y2="60" style="stroke:var(--sl-color-accent)" stroke-width="2" marker-end="url(#mvc-notify)" />
+	<text x="352" y="52" text-anchor="middle" style="fill:var(--sl-color-accent);font-size:11px">notify</text>
+	<line x1="424" y1="80" x2="286" y2="80" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#mvc-call)" />
+	<text x="352" y="96" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">get data</text>
+	<line x1="280" y1="135" x2="424" y2="135" style="stroke:var(--sl-color-accent)" stroke-width="2" marker-end="url(#mvc-notify)" />
+	<text x="352" y="127" text-anchor="middle" style="fill:var(--sl-color-accent);font-size:11px">notify</text>
+	<line x1="170" y1="250" x2="170" y2="136" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#mvc-call)" />
+	<text x="178" y="196" style="fill:var(--sl-color-gray-3);font-size:11px">service()</text>
+	<path d="M280 275 H360 V155 H424" style="fill:none;stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#mvc-call)" />
+	<text x="330" y="267" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">updates</text>
+	<line x1="18" y1="295" x2="54" y2="295" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#mvc-call)" />
+	<text x="36" y="287" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">input</text>
+
+	<rect x="60" y="40" width="220" height="90" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="170" y="76" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:16px;font-weight:600">Model</text>
+	<text x="170" y="98" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">core data and behaviour</text>
+
+	<rect x="430" y="30" width="270" height="70" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="565" y="62" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:15px;font-weight:600">View 1 — the list</text>
+
+	<rect x="430" y="120" width="270" height="70" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="565" y="152" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:15px;font-weight:600">View 2 — the detail</text>
+
+	<rect x="60" y="250" width="220" height="90" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="170" y="286" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:16px;font-weight:600">Controller</text>
+	<text x="170" y="308" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">turns events into requests</text>
+</svg>
+
+</Diagram>
+
+Notice what the notification edge buys: the model does not know who is watching, so a second view is added by registering it, and the model's interface does not change. That is the whole claim of the pattern, and it is also why the classic implementation reaches for an Observer or Publisher-Subscriber mechanism rather than calling views by name.
+
+## Variants
+
+- **Model 2, or action-oriented web MVC** — the shape almost every web framework implements. A request arrives, a controller decides what to do and which page comes next, the model is read or updated, and a template renders once. Fowler's names for the parts are Page Controller — an object handling one action or page — Front Controller for the single entry point that dispatches to them, and Template View for rendering by markers embedded in a page. There is no persistent view, so there is nothing to notify.
+- **Presentation Model, and MVVM on top of it** — move the view's state and behaviour into an object the view binds to, and let data binding replace the controller's updates. Fowler described the Presentation Model in 2004; John Gossman announced MVVM for WPF in 2005, and it is the same pattern with the platform's binding machinery doing the work. Gossman's own account of why it was needed is the useful part: only a small subset of a UI can be bound directly to the model, especially when the model is pre-existing and not yours to change.
+- **Presentation-Abstraction-Control** — the sibling Buschmann pairs with MVC for user interfaces that are themselves hierarchical, where each part of the interface has its own small model and controller rather than watching one shared model.
+- **No controller at all** — on the client, frameworks with declarative binding and their own event handling have largely absorbed the role. Gossman's aside about it is worth keeping: the controller "just faded into the background. It is still there, but we don't have to think about it as much as we did in 1979".
+
+The difference is one edge. Same three names, same three boxes; the web arrangement simply has nothing that outlives the request to notify.
+
+<Diagram caption="What a web framework calls MVC. The controller is a request handler, the view is a template, and no notification edge exists to draw.">
+
+<svg viewBox="0 0 760 230" role="img" aria-label="A request reaches a controller, which updates the model; the model passes data to a view once, and the view renders the response. The controller is what Django calls a view and the view is what Django calls a template.">
+	<defs>
+		<marker id="mvc-web-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+			<path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--sl-color-gray-3)" />
+		</marker>
+	</defs>
+
+	<line x1="12" y1="122" x2="54" y2="122" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#mvc-web-arrow)" />
+	<text x="33" y="114" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">request</text>
+	<line x1="220" y1="122" x2="274" y2="122" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#mvc-web-arrow)" />
+	<text x="247" y="114" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">updates</text>
+	<line x1="440" y1="122" x2="514" y2="122" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#mvc-web-arrow)" />
+	<text x="477" y="114" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">data, once</text>
+	<line x1="680" y1="122" x2="744" y2="122" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#mvc-web-arrow)" />
+	<text x="712" y="114" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">renders</text>
+
+	<rect x="60" y="90" width="160" height="64" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="140" y="126" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:15px;font-weight:600">Controller</text>
+	<rect x="280" y="90" width="160" height="64" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="360" y="126" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:15px;font-weight:600">Model</text>
+	<rect x="520" y="90" width="160" height="64" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="600" y="126" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:15px;font-weight:600">View</text>
+
+	<text x="140" y="180" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:10px">Django calls this the view</text>
+	<text x="600" y="180" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:10px">Django calls this the template</text>
+	<text x="330" y="212" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">No notifier: each request builds its view once.</text>
+</svg>
+
+</Diagram>
+
+
+## Tradeoffs
+
+- **The functional core stops depending on the interface.** Porting the UI, or adding a second one, no longer means touching the model — the decoupling Buschmann lists first.
+- **Consistency lives in one mechanism** rather than in every caller remembering to refresh every view. That is what the notifier is for, and it is the part that actually holds the three roles together.
+- **Complexity goes up, by the pattern's own account.** Buschmann lists increased structural and dynamic complexity and a potential loss of performance among its consequences. Three roles and a notification registry is more machinery than one screen that redraws itself.
+- **Views and controllers still couple to the model's interface.** Both call the model directly, so a change to the model's interface breaks both — and, as Buschmann notes, that cost is magnified by a multitude of views and controllers.
+- **The model becomes testable on its own**, which is the payoff that survives every later variant: the functional core can be exercised without a screen.
+
+## Failure modes
+
+- **The name without the mechanism.** A request handler and a template, called MVC because the framework's documentation says so. It is Model 2, it works, and nothing is wrong with it — except that the name imports expectations that do not hold. There is no second live view of anything, because the view does not outlive the request.
+- **Logic in the view.** Buschmann flags this as a temptation rather than an accident: building a running total into the view that displays an invoice, because the data is already to hand.
+- **The model used as the view.** Binding the interface straight to domain objects, so the UI's needs drag the domain's shape around. This is exactly the pressure that produced the Presentation Model and the ViewModel in the first place.
+- **The name drifting again, one level down.** Gossman, years after announcing MVVM, described what the ViewModel had become in practice: "the dumping ground for whatever doesn't fit (let's be honest)". The pattern that fixes a naming problem is not immune to the same problem.
+- **Data pulled row by row.** A view reads from the model as it renders, so a template that walks a collection and asks the model about each item turns one page into many queries. The pattern gives the view the freedom to ask; nothing in it bounds how often.
+
+## When to reach for it
+
+Reach for it when an interactive application has state that is watched and edited in more than one place at once, and the views have to keep agreeing without knowing about each other. That is the problem it was invented for, and the notification mechanism is the reason to pay for it.
+
+Do not reach for it for request/response work. A CRUD endpoint is a controller and a template, and calling that MVC hides the useful question — whether anything needs the notifier at all. When it does not, Model 2 is the honest name, and Page Controller or Front Controller is the honest design.
+
+Two caveats on that. First, its level is contested: Buschmann files MVC as an architectural pattern, while Allen Holub argues the reverse — "MVC is okay for implementing little things like buttons, but it fails as an application-level architecture", on the grounds that pulling data out of the model and pushing it elsewhere requires knowing too much about how the model works. Second, Reenskaug's own later judgement: MVC "extends the power of the user interface at the expense of increased demands on the user's mental model".
+
+## References
+
+- Buschmann, Meunier, Rohnert, Sommerlad & Stal, *Pattern-Oriented Software Architecture*, vol. 1, ch. 5 — "Model-View-Controller": the three roles, change propagation as Publisher-Subscriber, and the consequences.
+- Reenskaug, *Thing-Model-View-Editor* (May 1979) and *Models — Views — Controllers* (December 1979) — [the original reports](https://web.archive.org/web/2021/https://folk.universitetetioslo.no/trygver/2007/MVC_Originals.pdf) — his own account of the naming, and of the Smalltalk-80 implementation being someone else's work.
+- Fowler, *Patterns of Enterprise Application Architecture* — [Model View Controller](https://martinfowler.com/eaaCatalog/modelViewController.html), [Page Controller](https://martinfowler.com/eaaCatalog/pageController.html), [Front Controller](https://martinfowler.com/eaaCatalog/frontController.html), [Template View](https://martinfowler.com/eaaCatalog/templateView.html).
+- Fowler, [Presentation Model](https://martinfowler.com/eaaDev/PresentationModel.html) (2004) — the pattern MVVM is a specialisation of.
+- Gossman, [Introduction to Model/View/ViewModel for building WPF apps](https://web.archive.org/web/20100125220430/http://blogs.msdn.com/johngossman/archive/2005/10/08/478683.aspx) (2005), and his later post on [how the ViewModel drifted](https://learn.microsoft.com/en-us/archive/blogs/johngossman/100-modelviewviewmodels-of-mt-fuji).
+- Django, [General FAQ](https://docs.djangoproject.com/en/stable/faq/general/) — why it calls its arrangement MTV, and what each name points at instead.
+- *Programming Jakarta Struts*, ch. 1 — where the JSP Model 1 and Model 2 names come from.
+- Pawson, *Naked Objects*, ch. 2 — for Holub's dissent and for quoting Buschmann on the coupling that remains.
