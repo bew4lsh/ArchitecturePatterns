@@ -76,10 +76,9 @@ Rule 3 is the one people miss, and it is the difference between a layering that 
 
 ## Variants
 
-- **Relaxed layers** — a layer may skip downward past its neighbour (Presentation may call Domain directly for simple reads). Cheap, and it tends to become the rule rather than the exception.
-- **Open layers** — a boundary that requests may pass straight through. Usually justified exactly once, for a shared utility layer.
 - **Strict layers** — every boundary closed. What this page describes, and the version that ages best.
-- **Ports and adapters** — the Domain at the centre with all I/O at the edges. This is a layered architecture with Rule 3 taken seriously and the diagram rotated 90°, not a different idea.
+- **Open layers**, also called **relaxed layers** — a layer that requests may skip on the way down, so Presentation may call Domain directly for a simple read. One open boundary for a shared utility or a read path is the usual dose. It is also the standard escape from a sinkhole, which is why open boundaries tend to spread: each one is locally cheap and only expensive in aggregate.
+- **Ports and adapters** — Rule 3 promoted from exception to organising idea: the application sits inside, everything external sits outside, and they meet at ports the inside defines. Cockburn, who named it, is explicit that this is not a rotated stack — the asymmetry worth drawing is inside and outside rather than up and down, and the stacked picture is what he set out to get away from, because it invites logic to leak across the lines. The dependency inversion is the part that carries over; the layers are the part he drops.
 
 ## Tradeoffs
 
