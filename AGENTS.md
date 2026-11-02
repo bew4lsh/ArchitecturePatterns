@@ -34,3 +34,7 @@ Markdown and must carry the base path themselves.
 Diagrams are hand-authored inline SVG framed by `Diagram.astro`, coloured through
 Starlight theme variables in a `style` attribute (`fill="var(--x)"` does not work).
 Keep a diagram in the page that explains it.
+
+A figure that changes on the reader's input is an Astro component with a `<script>` in
+`src/components/` instead, because MDX cannot bundle one. Components read the same
+theme variables, so light and dark mode keep working.

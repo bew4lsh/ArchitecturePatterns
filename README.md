@@ -44,6 +44,12 @@ Colour the SVG with Starlight's theme variables (`var(--sl-color-gray-6)`,
 `fill="var(--x)"` do not support custom properties, so dark mode breaks if you use
 them.
 
+A figure that changes on the reader's input is an Astro component with a `<script>`
+instead, because MDX cannot bundle one. Those live in `src/components/` —
+`WorkQueueSimulator.astro` draws the live rate figure and `CheckYourself.astro` asks a
+question — and read the same theme variables, so they follow light and dark mode with
+the rest of the page.
+
 ## Deploying
 
 `.github/workflows/deploy.yml` builds and publishes the site on every push to `main`.
