@@ -81,7 +81,44 @@ The mechanism is the fourth thing, and it is the pattern: **when the model chang
 
 </Diagram>
 
-Notice what the notification edge buys: the model does not know who is watching, so a second view is added by registering it, and the model's interface does not change. That is the whole claim of the pattern, and it is also why the classic implementation reaches for an Observer or Publisher-Subscriber mechanism rather than calling views by name.
+Notice what the notification edge buys: the model does not know who is watching, so a second view is added by registering it, and the model's interface does not change. That is the whole claim of the pattern, and it is why the classic implementation reaches for an **Observer** — the model keeps a list and calls each view's update — rather than calling views by name.
+
+### The mechanism, in process: Observer
+
+The Observer pattern from *Design Patterns* is the shape MVC is usually built with: the model keeps a list of dependents and calls a method on each when its state changes. Three of its properties matter more than its structure.
+
+- **It is synchronous.** The notification runs on the stack of whatever changed the model, so every view has redrawn by the time the write returns. That is where the agreement comes from, and why there is no window in which the screen and the model disagree.
+- **The subscription is a reference the model holds.** A view that is replaced without detaching stays notified — the classic leak — and the model's list is the only record of who is watching.
+- **A failing observer fails the writer.** An exception from a view's update runs inside the code that changed the model, where it can abort a transaction or leave the change half-applied.
+
+Buschmann and others add a fourth, which is the one that bites in a large interface: a view that writes back to the model while being notified produces a cascade of updates, and because subscribers do not know about each other, the cost of one change is invisible from the code that made it.
+
+### The same idea through a broker: publisher-subscriber
+
+Publisher-subscriber moves the list out of the model and into an intermediary. The model publishes to a channel, the views subscribe to it, and neither side knows the other. Microsoft draws the line in exactly that place: in Observer the broadcast is direct and the two know each other, while pub/sub inserts a broker, and the broker is the thing that decouples them.
+
+A broker does not only decouple. It changes what you are promised.
+
+- **The update arrives later.** Between the write and the notification the screen is stale, and a read immediately after a write can still return the old value. Eventual consistency replaces agreement.
+- **Delivery becomes your problem.** A broker that persists and redelivers messages brings duplicates, ordering questions and idempotency — the obligations the [work queue](/messaging/work-queue/) page is about — and it is one more component that fails on its own.
+- **The view stops being a view of the model.** What the subscriber holds is a projection of events rather than current state, which is event-driven architecture with a read model: a different pattern with a different guarantee, and the honest description once the intermediary is the point.
+
+Buschmann's two volumes explain why the names blur. Volume 1 describes MVC's change propagation as "the Publisher-Subscriber pattern"; volume 2 draws Publisher-Subscriber with an explicit event channel. One name covers both the idea and the brokered implementation of it.
+
+### How the two differ
+
+| Aspect | Observer | Publisher-subscriber |
+| --- | --- | --- |
+| Who knows whom | the model holds references to its views | the publisher addresses a channel |
+| When a view updates | before the write returns | later, maybe on another machine |
+| A failing view | fails the writer | isolated; retry is on the subscriber |
+| Subscription | a reference, detached by hand | held and expired by the broker |
+| Filtering | none; views filter themselves | by topic, content or rule |
+| Delivery | the calls made, nothing stored | persisted and redelivered |
+| Scope | one process | across processes |
+| The "view" becomes | a rendering of current state | a projection of events |
+
+The distinction is not absolute: the core of both is "subscribe, then be notified", and direct against brokered is a delivery choice. Observer has had a `Detach` operation from the start, so the common claim that it cannot unsubscribe is simply wrong. What does not carry over is the guarantee — the last row of the table, and the one that decides which pattern you are actually writing.
 
 ## Variants
 
@@ -151,7 +188,10 @@ Two caveats on that. First, its level is contested: Buschmann files MVC as an ar
 
 ## References
 
-- Buschmann, Meunier, Rohnert, Sommerlad & Stal, *Pattern-Oriented Software Architecture*, vol. 1, ch. 5 — "Model-View-Controller": the three roles, change propagation as Publisher-Subscriber, and the consequences.
+- Buschmann, Meunier, Rohnert, Sommerlad & Stal, *Pattern-Oriented Software Architecture*, vol. 1, ch. 5 — "Model-View-Controller": the three roles, change propagation as Publisher-Subscriber, and the consequences. Volume 2, ch. 4 is where Publisher-Subscriber gets its event channel.
+- Gamma, Helm, Johnson & Vlissides, *Design Patterns* — "Observer", the in-process mechanism, including the `Detach` operation the distinction often forgets.
+- Microsoft, [Integration events between microservices](https://learn.microsoft.com/en-us/dotnet/architecture/microservices/multi-container-microservice-net-applications/integration-event-based-microservice-communications) — the clearest statement of what the broker adds, and the [Publisher-Subscriber](https://learn.microsoft.com/en-us/azure/architecture/patterns/publisher-subscriber) pattern itself.
+- Schmidt et al., [Event Handling Patterns](https://www.dre.vanderbilt.edu/~schmidt/POSA/POSA2/event-patterns.html) — POSA vol. 2's own summary, which lists Observer and Publisher-Subscriber as patterns from different sources.
 - Reenskaug, *Thing-Model-View-Editor* (May 1979) and *Models — Views — Controllers* (December 1979) — [the original reports](https://web.archive.org/web/2021/https://folk.universitetetioslo.no/trygver/2007/MVC_Originals.pdf) — his own account of the naming, and of the Smalltalk-80 implementation being someone else's work.
 - Fowler, *Patterns of Enterprise Application Architecture* — [Model View Controller](https://martinfowler.com/eaaCatalog/modelViewController.html), [Page Controller](https://martinfowler.com/eaaCatalog/pageController.html), [Front Controller](https://martinfowler.com/eaaCatalog/frontController.html), [Template View](https://martinfowler.com/eaaCatalog/templateView.html).
 - Fowler, [Presentation Model](https://martinfowler.com/eaaDev/PresentationModel.html) (2004) — the pattern MVVM is a specialisation of.
