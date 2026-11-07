@@ -37,6 +37,7 @@ export default defineConfig({
 				{ label: 'Architecture styles', items: [{ autogenerate: { directory: 'styles' } }] },
 				{ label: 'Messaging', items: [{ autogenerate: { directory: 'messaging' } }] },
 				{ label: 'Presentation', items: [{ autogenerate: { directory: 'presentation' } }] },
+				{ label: 'Reliability', items: [{ autogenerate: { directory: 'reliability' } }] },
 			],
 		}),
 	],
