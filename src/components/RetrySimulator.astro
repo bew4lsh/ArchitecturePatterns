@@ -1,0 +1,358 @@
+---
+interface Props {
+	/** Clients that all fail at the same instant. */
+	clients?: number;
+	/** Requests the dependency can serve per 250 ms bucket. */
+	capacity?: number;
+	/** First retry delay, in milliseconds. */
+	baseDelay?: number;
+	/** Retries after the first attempt. */
+	retries?: number;
+}
+
+const {
+	clients = 200,
+	capacity = 120,
+	baseDelay = 500,
+	retries = 5,
+} = Astro.props;
+
+const BUCKETS = 64;
+const CHART = { baseline: 168, height: 148 };
+const bars = Array.from({ length: BUCKETS });
+---
+
+<section
+	class="sim not-content"
+	data-sim
+	data-jitter="off"
+	data-clients={clients}
+	data-capacity={capacity}
+	aria-label="Retry storm simulator"
+>
+	<div class="controls">
+		<label class="control">
+			<span>Retries <b data-retries-value>{retries}</b> after the first attempt</span>
+			<input type="range" data-retries min="1" max="6" step="1" value={retries} />
+		</label>
+		<label class="control">
+			<span>Base delay <b data-base-value>{baseDelay}</b> ms</span>
+			<input type="range" data-base min="400" max="1200" step="100" value={baseDelay} />
+		</label>
+		<div class="buttons">
+			<button type="button" data-jitter aria-pressed="false">Full jitter: off</button>
+			<button type="button" data-play>Play</button>
+			<button type="button" data-reset>Reset</button>
+		</div>
+	</div>
+
+	<p class="verdict" data-verdict>
+		{clients} clients fail at the same instant. Every retry follows the same schedule.
+	</p>
+
+	<figure class="chart">
+		<svg viewBox="0 0 640 200" preserveAspectRatio="none" role="img" aria-label="A bar chart of the requests landing on the dependency per 250 millisecond bucket after the clients all fail together. Without jitter the bars form tall synchronized spikes; with full jitter they spread.">
+			<line x1="0" y1={CHART.baseline} x2="640" y2={CHART.baseline} style="stroke:var(--sl-color-gray-4)" stroke-width="1" vector-effect="non-scaling-stroke" />
+			<line data-capacity x1="0" x2="640" y1={CHART.baseline - (capacity / clients) * CHART.height} y2={CHART.baseline - (capacity / clients) * CHART.height} style="stroke:var(--sl-color-orange)" stroke-width="1.5" stroke-dasharray="6 5" vector-effect="non-scaling-stroke" />
+			{bars.map((_, index) => (
+				<rect data-bar data-index={index} x={index * 10} y={CHART.baseline} width="8" height="0" style="fill:var(--sim-bar)" />
+			))}
+			<line data-cursor x1="0" x2="0" y1="20" y2={CHART.baseline} style="stroke:var(--sl-color-gray-2)" stroke-width="1" vector-effect="non-scaling-stroke" visibility="hidden" />
+		</svg>
+		<figcaption>
+			<span>Retries per 250 ms bucket, over 16 s</span>
+			<span class="key">capacity {capacity} per 250 ms</span>
+		</figcaption>
+	</figure>
+
+	<p class="note" data-note>
+		Busiest 250 ms so far: 0 · retries so far: 0
+	</p>
+</section>
+
+<style>
+	.sim {
+		--sim-bar: var(--sl-color-accent);
+		display: grid;
+		gap: 1rem;
+		margin: 2rem 0;
+		padding: 1.25rem;
+		border: 1px solid var(--sl-color-gray-4);
+		border-radius: 0.75rem;
+		background: var(--sl-color-gray-6);
+	}
+
+	.sim[data-jitter='on'] {
+		--sim-bar: var(--sl-color-green);
+	}
+
+	.controls {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: end;
+		gap: 0.75rem 1.5rem;
+	}
+
+	.control {
+		display: grid;
+		flex: 1 1 13rem;
+		gap: 0.35rem;
+		font-size: 0.8125rem;
+		color: var(--sl-color-gray-2);
+	}
+
+	.control b {
+		font-variant-numeric: tabular-nums;
+	}
+
+	.control input {
+		width: 100%;
+		accent-color: var(--sl-color-accent);
+	}
+
+	.buttons {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.buttons button {
+		padding: 0.35rem 0.75rem;
+		border: 1px solid var(--sl-color-gray-4);
+		border-radius: 0.375rem;
+		background: transparent;
+		color: var(--sl-color-gray-2);
+		font: inherit;
+		font-size: 0.8125rem;
+		cursor: pointer;
+	}
+
+	.buttons button:hover {
+		background: var(--sl-color-gray-5);
+	}
+
+	.buttons button[aria-pressed='true'] {
+		border-color: var(--sl-color-accent);
+		color: var(--sl-color-accent-high);
+	}
+
+	.verdict {
+		margin: 0;
+		font-size: 0.9375rem;
+		color: var(--sl-color-gray-1);
+	}
+
+	.verdict::before {
+		content: '';
+		display: inline-block;
+		width: 0.5rem;
+		height: 0.5rem;
+		margin-right: 0.5rem;
+		border-radius: 50%;
+		background: var(--sim-bar);
+	}
+
+	.chart {
+		margin: 0;
+	}
+
+	.chart svg {
+		display: block;
+		width: 100%;
+		height: 200px;
+	}
+
+	.chart :global([data-bar]) {
+		transition: opacity 120ms linear;
+	}
+
+	.chart :global([data-bar][data-over]) {
+		fill: var(--sl-color-red) !important;
+	}
+
+	.chart :global([data-bar][data-hidden]) {
+		opacity: 0.08;
+	}
+
+	.chart figcaption {
+		display: flex;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-top: 0.35rem;
+		font-size: 0.75rem;
+		color: var(--sl-color-gray-3);
+	}
+
+	.key {
+		color: var(--sl-color-orange);
+	}
+
+	.note {
+		margin: 0;
+		font-variant-numeric: tabular-nums;
+		font-size: 0.75rem;
+		color: var(--sl-color-gray-3);
+	}
+</style>
+
+<script>
+	const BUCKET_MS = 250;
+	const BUCKETS = 64;
+	const CAP_MS = 8000;
+	const CHART_HEIGHT = 148;
+	const BASELINE = 168;
+
+	function mulberry32(seed: number) {
+		return () => {
+			seed |= 0;
+			seed = (seed + 0x6d2b79f5) | 0;
+			let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+			t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+			return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+		};
+	}
+
+	function schedule(jitter: boolean, retries: number, base: number, clients: number) {
+		const random = mulberry32(20261107);
+		const counts = new Array<number>(BUCKETS).fill(0);
+		for (let client = 0; client < clients; client += 1) {
+			let time = 0;
+			for (let attempt = 0; attempt < retries; attempt += 1) {
+				const ceiling = Math.min(CAP_MS, base * 2 ** attempt);
+				time += jitter ? random() * ceiling : ceiling;
+				if (time >= BUCKETS * BUCKET_MS) break;
+				counts[Math.floor(time / BUCKET_MS)] += 1;
+			}
+		}
+		return counts;
+	}
+
+	function init(root: HTMLElement) {
+		const clients = Number(root.dataset.clients ?? 200);
+		const capacity = Number(root.dataset.capacity ?? 120);
+		const retriesInput = root.querySelector<HTMLInputElement>('[data-retries]')!;
+		const baseInput = root.querySelector<HTMLInputElement>('[data-base]')!;
+		const retriesValue = root.querySelector('[data-retries-value]')!;
+		const baseValue = root.querySelector('[data-base-value]')!;
+		const jitterButton = root.querySelector<HTMLButtonElement>('[data-jitter]')!;
+		const playButton = root.querySelector<HTMLButtonElement>('[data-play]')!;
+		const resetButton = root.querySelector<HTMLButtonElement>('[data-reset]')!;
+		const verdict = root.querySelector('[data-verdict]')!;
+		const note = root.querySelector('[data-note]')!;
+		const cursorLine = root.querySelector<SVGLineElement>('[data-cursor]')!;
+		const bars = [...root.querySelectorAll<SVGRectElement>('[data-bar]')];
+
+		let jitter = false;
+		let counts = schedule(jitter, Number(retriesInput.value), Number(baseInput.value), clients);
+		let cursor = BUCKETS;
+		let timer = 0;
+
+		const draw = () => {
+			const shown = Math.min(cursor, BUCKETS);
+			let peak = 0;
+			let total = 0;
+			counts.forEach((count, index) => {
+				const height = Math.min(CHART_HEIGHT, (count / clients) * CHART_HEIGHT);
+				bars[index].setAttribute('y', String(BASELINE - height));
+				bars[index].setAttribute('height', String(height));
+				bars[index].toggleAttribute('data-over', count > capacity);
+				bars[index].toggleAttribute('data-hidden', index >= shown);
+				if (index < shown) {
+					peak = Math.max(peak, count);
+					total += count;
+				}
+			});
+
+			cursorLine.setAttribute('x1', String(shown * 10));
+			cursorLine.setAttribute('x2', String(shown * 10));
+			cursorLine.setAttribute('visibility', shown < BUCKETS ? 'visible' : 'hidden');
+
+			note.textContent = `Busiest 250 ms so far: ${peak} · retries so far: ${total}`;
+
+			if (jitter) {
+				verdict.textContent =
+					peak > capacity
+						? `Full jitter spreads the retries, but the first spike still reaches ${peak} in one 250 ms bucket against the ${capacity} the dependency serves.`
+						: `Full jitter spreads the retries: the busiest 250 ms bucket holds ${peak}, under the ${capacity} the dependency serves.`;
+			} else {
+				verdict.textContent =
+					peak > capacity
+						? `Every client retries on the same schedule: ${peak} requests land in one 250 ms bucket, and the dependency serves ${capacity}.`
+						: `${clients} clients retry on the same schedule.`;
+			}
+		};
+
+		const recompute = () => {
+			counts = schedule(jitter, Number(retriesInput.value), Number(baseInput.value), clients);
+			cursor = BUCKETS;
+			stop();
+			playButton.textContent = 'Play';
+			draw();
+		};
+
+		const advance = () => {
+			cursor += 1;
+			draw();
+			if (cursor >= BUCKETS) {
+				stop();
+				playButton.textContent = 'Play';
+			}
+		};
+
+		const start = () => {
+			if (timer) return;
+			timer = window.setInterval(advance, 80);
+		};
+
+		function stop() {
+			window.clearInterval(timer);
+			timer = 0;
+		}
+
+		const toggleJitter = () => {
+			jitter = !jitter;
+			root.dataset.jitter = jitter ? 'on' : 'off';
+			jitterButton.setAttribute('aria-pressed', String(jitter));
+			jitterButton.textContent = jitter ? 'Full jitter: on' : 'Full jitter: off';
+			recompute();
+		};
+
+		jitterButton.addEventListener('click', toggleJitter);
+		retriesInput.addEventListener('input', () => {
+			retriesValue.textContent = retriesInput.value;
+			recompute();
+		});
+		baseInput.addEventListener('input', () => {
+			baseValue.textContent = baseInput.value;
+			recompute();
+		});
+		playButton.addEventListener('click', () => {
+			if (timer) {
+				stop();
+				playButton.textContent = 'Play';
+				return;
+			}
+			if (cursor >= BUCKETS) cursor = 0;
+			playButton.textContent = 'Pause';
+			draw();
+			start();
+		});
+		resetButton.addEventListener('click', () => {
+			cursor = BUCKETS;
+			stop();
+			playButton.textContent = 'Play';
+			draw();
+		});
+
+		draw();
+
+		document.addEventListener('visibilitychange', () => {
+			if (document.hidden) {
+				stop();
+				playButton.textContent = 'Play';
+			}
+		});
+	}
+
+	document.querySelectorAll<HTMLElement>('[data-sim]').forEach(init);
+</script>

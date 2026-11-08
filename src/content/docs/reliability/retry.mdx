@@ -1,25 +1,309 @@
 ---
 title: Retry
-description: Re-running an operation that failed transiently, with backoff and jitter so retries do not synchronise into a storm.
-draft: true
+description: Repeating a failed operation to survive transient faults — bounded, backed off, jittered, and only where repetition is safe.
 sidebar:
   order: 2
 ---
 
+import Diagram from '../../../components/Diagram.astro';
+import RetrySimulator from '../../../components/RetrySimulator.astro';
+import CheckYourself from '../../../components/CheckYourself.astro';
+
+Retry is the cheapest way to turn a random failure into a success: run the same request again. It is also the easiest way to turn a small outage into a large one, because retries add load to a dependency at the moment it can least afford it.
+
 ## Also known as
+
+- **Retry** — the pattern, and the name this page uses.
+- **Backoff** — the wait between attempts. Capped exponential backoff is the common form. It is the policy inside a retry, not the whole of it.
+- **Jitter** — randomness added to the backoff, so clients do not wait the same amount. A part of the retry, and the part most often left out.
+- **Retry budget** — a cap on retry traffic across a fleet. Google's SRE book sets it as a ratio of retries to requests; AWS uses a token bucket.
+- **Retry storm**, **thundering herd** — the failure mode, not the pattern: synchronized retries arriving together.
+- **Hedging** — a neighbour, not a retry. Hedging sends a duplicate request to a second replica after a delay, before the first has failed, to cut tail latency. It trades duplicate work for latency rather than for availability.
+- **Idempotency key** — the mechanism that makes an operation safe to repeat when the API is not naturally idempotent.
 
 ## Context
 
+A call fails. Some failures are transient — a dropped packet, a leader election, a rolling restart, a throttled request — and the same call would succeed a moment later. Others are permanent: the request is malformed, the resource does not exist, a business rule said no.
+
+The caller cannot see which is which. A timeout is the hardest case: the request may have been received, processed, and answered, with only the answer lost. Retrying then repeats the work.
+
+Retry is how a caller converts a partial or random failure into a success. It works only while the failures are a small fraction of traffic. When failures are caused by overload, retries are more load on the thing that is already failing, and AWS's phrasing is exact: retries are selfish. A client that retries is demanding more of the server's time for its own request.
+
 ## Forces
+
+- **Transience against permanence** — the same status code can mean either, and eventual consistency blurs the line further.
+- **Latency against success** — each attempt buys a chance to succeed and costs the caller time. The caller has a deadline.
+- **Load against recovery** — retries arrive exactly when the dependency is weakest, and can keep it down after the original trigger is gone.
+- **Duplication against correctness** — a timeout does not mean the work did not happen.
+- **Amplification against depth** — retries multiply at every layer that runs them.
+- **Visibility** — a retry that succeeds hides the failure that caused it. The final success rate looks healthy.
+- **Coordination** — clients cannot coordinate, so each one's reasonable decision sums into an unreasonable whole.
 
 ## Solution
 
+Wrap the call in a loop with a policy. The policy answers five questions.
+
+1. **Which outcomes are worth retrying?** Retry only what is transient. A connection reset or a timeout usually means the request did not land; a `503` may clear; a `429` with a `Retry-After` gives you an explicit schedule. A `400`, a `401`, or a business rejection will never clear. AWS notes that eventual consistency blurs this: a `404` can become a `200` as state propagates.
+2. **How many attempts, and by when?** Cap the attempts per request, and fit the whole loop inside the caller's deadline. Google caps a request at three attempts and lets the failure bubble up.
+3. **How long to wait?** Back off exponentially so a failing dependency gets progressively more room: `min(cap, base × 2ⁿ)` before attempt `n`. The cap stops the wait growing without bound.
+4. **How to keep clients apart?** Add jitter, or every client waits the same amount and retries in lockstep. Full jitter is `random(0, min(cap, base × 2ⁿ))`; equal jitter keeps half the wait fixed; decorrelated jitter grows the maximum from the previous sleep.
+5. **Is repetition safe?** Retry only idempotent operations. If the operation is not idempotent, give the server an idempotency key so it can recognise the repeat and return the original result instead of doing the work twice.
+
+Two more rules bound the damage:
+
+- **Cap the fleet, not just the request.** A per-request cap of three attempts caps growth at three times the traffic in the worst case. A per-client retry budget on top — Google's example is retries under 10% of requests — brings that back to about 1.1 times. AWS's SDK does the same with a token bucket: every call may retry while tokens remain, then retries drop to a fixed rate until tokens refill.
+- **Retry at one layer.** A five-deep stack with three retries at each layer turns one request into 243 at the database. Pick the layer closest to the caller that understands the failure, and let the layers below fail fast.
+
+<Diagram caption="One call, three attempts. The wait doubles each time and is capped, and the whole loop must finish inside the caller's deadline — the fourth wait would not.">
+
+<svg viewBox="0 0 760 300" role="img" aria-label="A timeline with three attempts. The first times out, the caller waits one base delay, the second fails with a 503, the caller waits two base delays, and the third attempt succeeds. A deadline line marks where a fourth attempt would be abandoned.">
+	<defs>
+		<marker id="retry-loop-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+			<path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--sl-color-gray-3)" />
+		</marker>
+		<marker id="retry-loop-fail" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+			<path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--sl-color-red)" />
+		</marker>
+	</defs>
+
+	<line x1="40" y1="140" x2="720" y2="140" style="stroke:var(--sl-color-gray-4)" stroke-width="1.5" />
+	<text x="40" y="164" style="fill:var(--sl-color-gray-3);font-size:10px">t = 0</text>
+
+	<circle cx="80" cy="140" r="10" style="fill:var(--sl-color-red-low);stroke:var(--sl-color-red)" stroke-width="1.5" />
+	<text x="80" y="144" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:11px">1</text>
+	<text x="80" y="112" text-anchor="middle" style="fill:var(--sl-color-red);font-size:10px">times out</text>
+
+	<circle cx="230" cy="140" r="10" style="fill:var(--sl-color-red-low);stroke:var(--sl-color-red)" stroke-width="1.5" />
+	<text x="230" y="144" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:11px">2</text>
+	<text x="230" y="112" text-anchor="middle" style="fill:var(--sl-color-red);font-size:10px">503</text>
+
+	<circle cx="430" cy="140" r="10" style="fill:var(--sl-color-green-low);stroke:var(--sl-color-green)" stroke-width="1.5" />
+	<text x="430" y="144" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:11px">3</text>
+	<text x="430" y="112" text-anchor="middle" style="fill:var(--sl-color-green);font-size:10px">succeeds</text>
+
+	<g class="ve-dim">
+		<path class="ext" d="M80 140V196M230 140V196" />
+		<path class="ln" d="M80 192H230" />
+		<text x="155" y="186" text-anchor="middle" style="fill:var(--sl-color-gray-2);font-size:10px">base</text>
+	</g>
+	<g class="ve-dim">
+		<path class="ext" d="M230 140V226M430 140V226" />
+		<path class="ln" d="M230 222H430" />
+		<text x="330" y="216" text-anchor="middle" style="fill:var(--sl-color-gray-2);font-size:10px">2 × base</text>
+	</g>
+
+	<line x1="620" y1="76" x2="620" y2="256" style="stroke:var(--sl-color-red)" stroke-width="1.5" stroke-dasharray="6 4" />
+	<text x="620" y="68" text-anchor="middle" style="fill:var(--sl-color-red);font-size:10px">caller deadline</text>
+
+	<path d="M430 140H600" style="fill:none;stroke:var(--sl-color-gray-4)" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#retry-loop-arrow)" />
+	<text x="515" y="132" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:10px">4 × base</text>
+	<text x="610" y="146" style="fill:var(--sl-color-red);font-size:11px">✕</text>
+	<text x="470" y="276" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:10px">A fourth attempt would wait past the deadline, so the call fails.</text>
+</svg>
+
+</Diagram>
+
+Which failures to retry, and which to accept as final:
+
+| Signal | Retry? |
+| --- | --- |
+| Timeout, connection reset, DNS failure | Usually — the request probably never landed |
+| `500`, `502`, `503`, `504` | Usually — server-side and possibly transient |
+| `429`, or `503` with `Retry-After` | Yes, after the delay the server named |
+| `408 Request Timeout` | Yes |
+| `400`, `401`, `403`, `404`, `409`, `422` | No — the request is wrong, or the state is final |
+| A business rule that rejected the request | No — the answer will not change |
+| A dependency that is at capacity | Not immediately — shed load or queue it for later |
+
+### Watching the herd
+
+Every client that fails at the same instant and waits the same amount retries at the same instant. Set the retries and the base delay, then switch jitter on and off. The bars are the retries landing on the dependency, in 250 ms buckets.
+
+<RetrySimulator />
+
+Two things to look for. Without jitter the retries arrive in tall, evenly spaced spikes, each one the whole fleet at once. With full jitter the spikes collapse into a roughly steady rate. Jitter does not remove the first spike — every client failed together, so their first retries still crowd into the first window — it removes every spike after it.
+
+Nygard's version of this is to take the retry out of the request path entirely: queue the failed call and retry it later, when the dependency has room.
+
 ## Variants
+
+- **Immediate retry** — retry with no wait. Correct only for rare failures that clear instantly, such as a corrupted packet. Wrong for anything caused by load.
+- **Fixed delay** — the same wait every time. Simple, and synchronises every client that started together.
+- **Capped exponential backoff** — `min(cap, base × 2ⁿ)`. The default. Without jitter it clusters.
+- **Full jitter** — `random(0, min(cap, base × 2ⁿ))`. In AWS's simulation it does the least work and avoids the clusters; the price is a wider spread of completion times.
+- **Equal jitter** — half the wait fixed, half random. Keeps a minimum slowdown, but did slightly more work and took longer than full jitter.
+- **Decorrelated jitter** — the maximum grows from the previous sleep. More time, less work than full jitter; the two are close.
+- **Per-request attempt budget** — cap the attempts for one logical request. Google's is three, then bubble the failure up.
+- **Per-client retry ratio** — cap retries as a fraction of a client's traffic, Google's at about 10%, with adaptive throttling that rejects retries as acceptances fall.
+- **Token bucket** — AWS's SDK lets calls retry while tokens remain, then retries at a fixed rate until tokens refill. A local cap on a fleet-wide problem.
+- **Server-directed backoff** — honour `Retry-After` on `429` and `503` instead of your own schedule.
+- **Hedging** — send to a second replica after a delay without waiting for a failure. Not a retry: it targets tail latency, and it duplicates work on every slow request.
+- **Retry later, off the request path** — put the failed call on a queue and retry it out of band. Nygard's delayed retry, and the only version that does not spend the caller's deadline.
 
 ## Tradeoffs
 
+- **Latency.** Each attempt adds to the tail. A success on the third attempt costs the caller the first two attempts plus `base` plus `2 × base`, and the caller may not have that budget.
+- **Load.** Retries multiply traffic during the incident, up to the attempt cap in the worst case. A retry budget caps the multiplier; it does not remove it.
+- **Correctness.** Without idempotency, a retry after a lost response duplicates the side effect. The mechanism to prevent it — an idempotency key and a server that dedupes — is work the caller and the server both have to do.
+- **Recovery time.** Retries can keep a dependency overloaded after the trigger is gone, so it never drains and never recovers. AWS calls this the risk that retries delay recovery by keeping load high.
+- **Observability.** Final success rate hides retries. A service answering after three attempts looks healthy until you measure first-attempt failures and retry rate, which are the signals that matter.
+- **Configuration provenance.** Microsoft notes that retry mechanisms are now common in client libraries, each with its own parameters. The policy running in production may be a library default nobody chose.
+- **Coupling with the circuit breaker.** Retry wrapped around a breaker multiplies the probes, and Microsoft's rule is that the retry must stop when the breaker reports a fault that is not transient.
+
 ## Failure modes
+
+<Diagram caption="Retries multiply at every layer that runs them. Four attempts at each of three layers turns one request into sixty-four at the database.">
+
+<svg viewBox="0 0 760 250" role="img" aria-label="One request passes through three layers, each retrying up to four times, so the database receives sixty-four attempts for each original request.">
+	<defs>
+		<marker id="retry-amp-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+			<path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--sl-color-gray-3)" />
+		</marker>
+	</defs>
+
+	<rect x="30" y="46" width="150" height="56" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="105" y="70" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:13px;font-weight:600">Checkout</text>
+	<text x="105" y="88" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:10px">1 request</text>
+
+	<rect x="230" y="46" width="150" height="56" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="305" y="70" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:13px;font-weight:600">Inventory</text>
+	<text x="305" y="88" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:10px">4 attempts</text>
+
+	<rect x="430" y="46" width="150" height="56" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="505" y="70" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:13px;font-weight:600">Pricing</text>
+	<text x="505" y="88" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:10px">16 attempts</text>
+
+	<rect x="620" y="46" width="110" height="56" rx="8" style="fill:var(--sl-color-red-low);stroke:var(--sl-color-red)" />
+	<text x="675" y="70" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:13px;font-weight:600">Database</text>
+	<text x="675" y="88" text-anchor="middle" style="fill:var(--sl-color-red);font-size:10px">64 attempts</text>
+
+	<line x1="180" y1="74" x2="226" y2="74" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#retry-amp-arrow)" />
+	<line x1="380" y1="74" x2="426" y2="74" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#retry-amp-arrow)" />
+	<line x1="580" y1="74" x2="616" y2="74" style="stroke:var(--sl-color-red)" stroke-width="1.5" marker-end="url(#retry-amp-arrow)" />
+	<text x="203" y="64" text-anchor="middle" style="fill:var(--sl-color-red);font-size:10px">×4</text>
+	<text x="403" y="64" text-anchor="middle" style="fill:var(--sl-color-red);font-size:10px">×4</text>
+	<text x="598" y="64" text-anchor="middle" style="fill:var(--sl-color-red);font-size:10px">×4</text>
+
+	<line x1="30" y1="150" x2="730" y2="150" style="stroke:var(--sl-color-gray-4)" stroke-width="1" />
+	<rect x="30" y="128" width="3" height="22" rx="1" style="fill:var(--sl-color-gray-3)" />
+	<rect x="230" y="128" width="13" height="22" rx="1" style="fill:var(--sl-color-gray-2)" />
+	<rect x="430" y="128" width="52" height="22" rx="1" style="fill:var(--sl-color-orange)" />
+	<rect x="620" y="128" width="110" height="22" rx="1" style="fill:var(--sl-color-red)" />
+	<text x="30" y="180" style="fill:var(--sl-color-gray-3);font-size:10px">requests reaching the layer, on one scale</text>
+	<text x="620" y="204" style="fill:var(--sl-color-red);font-size:11px">The database sees 64× the original request.</text>
+</svg>
+
+</Diagram>
+
+- **Retry storms.** Every client waits the same amount and retries together, so the dependency gets the whole fleet in spikes. The symptom: load charts show evenly spaced bursts, and the dependency recovers between them only to be knocked over again.
+- **Amplification across layers.** Each layer retries independently, so the attempts multiply. The symptom: the database is the only thing overloaded, and its callers report only modest error rates.
+- **Metastable failure.** Retries sustain the overload after the original trigger is gone, so the system stays broken until retry traffic is shed. Huang et al. found that 11 of the 21 metastable incidents they catalogued were sustained by retries. The symptom: the error rate stays flat while load stays high, and removing the retries is what restores service.
+- **Duplicate side effects.** A timeout after the work succeeded is retried, and the work happens twice. The symptom: two charges, two emails, two rows. The fix is an idempotency key the server honours.
+- **Retrying permanent errors.** A `404` or a validation failure is retried on the same schedule as a timeout. The symptom: wasted attempts and log noise, and an error that can never clear.
+- **No timeout, no cap.** An attempt that hangs holds its thread, and the retries pile on top. The symptom: connection and thread pools exhaust while the dependency is merely slow.
+- **Retry around an open breaker.** The breaker refuses, the retry treats the refusal as transient, and the probes multiply. Microsoft's rule: the retry logic must stop when the breaker says the fault is not transient.
+- **Hiding the failure.** Only the final outcome is measured, so the retry rate is invisible. The symptom: a healthy success-rate dashboard while a dependency is failing a large share of first attempts.
+- **Ignoring `Retry-After`.** The server names a delay and the client uses its own schedule instead. The symptom: hammering a service that told you how long to wait.
+
+<Diagram caption="Four more ways retries misfire: they cluster, they repeat work that already happened, they loop on an error that cannot change, and they hide the failures they absorb.">
+
+<svg viewBox="0 0 748 200" role="img" aria-label="Four failure shapes. Synchronized retries spike above capacity. A retry after a lost response charges twice. A permanent error is retried forever. Successful dashboards hide the failures retries absorbed.">
+	<g transform="translate(12 8)">
+		<rect x="0" y="0" width="172" height="184" rx="10" style="fill:none;stroke:var(--sl-color-gray-4)" />
+		<text x="14" y="27" style="fill:var(--sl-color-gray-1);font-size:12.5px;font-weight:600">Synchronized spikes</text>
+		<line x1="16" y1="140" x2="156" y2="140" style="stroke:var(--sl-color-gray-4)" />
+		<line x1="16" y1="96" x2="156" y2="96" style="stroke:var(--sl-color-red)" stroke-dasharray="5 4" />
+		<rect x="30" y="72" width="14" height="68" style="fill:var(--sl-color-red)" />
+		<rect x="72" y="72" width="14" height="68" style="fill:var(--sl-color-red)" />
+		<rect x="114" y="72" width="14" height="68" style="fill:var(--sl-color-red)" />
+		<text x="140" y="92" text-anchor="end" style="fill:var(--sl-color-red);font-size:8.5px">capacity</text>
+		<text x="14" y="168" style="fill:var(--sl-color-gray-3);font-size:9.5px">every client waits the same</text>
+	</g>
+	<g transform="translate(196 8)">
+		<rect x="0" y="0" width="172" height="184" rx="10" style="fill:none;stroke:var(--sl-color-gray-4)" />
+		<text x="14" y="27" style="fill:var(--sl-color-gray-1);font-size:12.5px;font-weight:600">Work done twice</text>
+		<rect x="14" y="64" width="46" height="30" rx="5" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+		<text x="37" y="83" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:9px">client</text>
+		<rect x="106" y="58" width="52" height="22" rx="4" style="fill:var(--sl-color-red-low);stroke:var(--sl-color-red)" />
+		<text x="132" y="73" text-anchor="middle" style="fill:var(--sl-color-red);font-size:8.5px">charged</text>
+		<rect x="106" y="92" width="52" height="22" rx="4" style="fill:var(--sl-color-red-low);stroke:var(--sl-color-red)" />
+		<text x="132" y="107" text-anchor="middle" style="fill:var(--sl-color-red);font-size:8.5px">charged</text>
+		<path d="M60 72H104" style="fill:none;stroke:var(--sl-color-red)" stroke-width="1.5" />
+		<path d="M60 88H104" style="fill:none;stroke:var(--sl-color-red)" stroke-width="1.5" stroke-dasharray="4 3" />
+		<text x="82" y="56" text-anchor="middle" style="fill:var(--sl-color-red);font-size:8.5px">timeout</text>
+		<text x="14" y="168" style="fill:var(--sl-color-gray-3);font-size:9.5px">the response was lost</text>
+	</g>
+	<g transform="translate(380 8)">
+		<rect x="0" y="0" width="172" height="184" rx="10" style="fill:none;stroke:var(--sl-color-gray-4)" />
+		<text x="14" y="27" style="fill:var(--sl-color-gray-1);font-size:12.5px;font-weight:600">Permanent error</text>
+		<rect x="14" y="70" width="46" height="30" rx="5" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+		<text x="37" y="89" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:9px">client</text>
+		<rect x="112" y="70" width="46" height="30" rx="5" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+		<text x="135" y="89" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:9px">service</text>
+		<path d="M60 80H108" style="fill:none;stroke:var(--sl-color-gray-3)" stroke-width="1.5" />
+		<text x="84" y="72" text-anchor="middle" style="fill:var(--sl-color-red);font-size:8.5px">404</text>
+		<path d="M112 100H64V104" style="fill:none;stroke:var(--sl-color-red)" stroke-width="1.5" stroke-dasharray="4 3" />
+		<text x="86" y="122" text-anchor="middle" style="fill:var(--sl-color-red);font-size:15px">∞</text>
+		<text x="14" y="168" style="fill:var(--sl-color-gray-3);font-size:9.5px">the answer cannot change</text>
+	</g>
+	<g transform="translate(564 8)">
+		<rect x="0" y="0" width="172" height="184" rx="10" style="fill:none;stroke:var(--sl-color-gray-4)" />
+		<text x="14" y="27" style="fill:var(--sl-color-gray-1);font-size:12.5px;font-weight:600">Hidden failures</text>
+		<rect x="24" y="54" width="124" height="46" rx="6" style="fill:var(--sl-color-green-low);stroke:var(--sl-color-green)" />
+		<text x="86" y="74" text-anchor="middle" style="fill:var(--sl-color-green);font-size:11px;font-weight:600">99.9% success</text>
+		<text x="86" y="90" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:8.5px">measured after retries</text>
+		<rect x="24" y="120" width="10" height="14" style="fill:var(--sl-color-red)" />
+		<rect x="40" y="120" width="10" height="14" style="fill:var(--sl-color-red)" />
+		<rect x="56" y="120" width="10" height="14" style="fill:var(--sl-color-red)" />
+		<rect x="72" y="120" width="10" height="14" style="fill:var(--sl-color-red)" />
+		<text x="90" y="131" style="fill:var(--sl-color-red);font-size:9px">first attempts failing</text>
+		<text x="14" y="168" style="fill:var(--sl-color-gray-3);font-size:9.5px">the retry rate is the signal</text>
+	</g>
+</svg>
+
+</Diagram>
+
+### Check yourself
+
+<CheckYourself
+	question="A payment call times out. The handler retries it, and the customer is charged twice. What was missing?"
+	options={[
+		{
+			label: 'A shorter timeout',
+			feedback: 'A shorter timeout makes the lost-response window smaller, not safe. The retry can still repeat a charge that already happened.',
+		},
+		{
+			label: 'A jittered backoff',
+			feedback: 'Jitter spreads retries in time. It does nothing about a charge that was already made.',
+		},
+		{
+			label: 'An idempotency key the server honours',
+			feedback: 'Right. A timeout does not mean the work did not happen. Only the server can recognise the repeat and return the original charge instead of making another.',
+			correct: true,
+		},
+	]}
+/>
 
 ## When to reach for it
 
+Reach for it when all of these hold:
+
+- the failure is transient — partial, random, or short-lived;
+- the operation is idempotent, or you can give it an idempotency key;
+- the caller can absorb the added latency inside its deadline;
+- the dependency is not already at capacity, or you have a retry budget or a breaker in front of it;
+- you can retry at a single layer and let the layers below fail fast.
+
+Do not reach for it for non-idempotent operations without a key; for permanent errors; when the dependency is saturated and the right move is to shed load or queue the work for later; when an outer layer already retries; when the caller's deadline cannot fit another attempt; or when a [circuit breaker](/reliability/circuit-breaker/) is open and telling you the fault is not transient.
+
+Pair it with explicit timeouts on every attempt, and treat the retry rate as a first-class metric — it is the only thing that shows the failures the retries absorbed.
+
 ## References
+
+- Microsoft, Azure Architecture Center — [Retry pattern](https://learn.microsoft.com/en-us/azure/architecture/patterns/retry) — transient faults, the three strategies, idempotency, logging early failures as informational, and why only one layer should retry.
+- AWS, Builders' Library — [Timeouts, retries, and backoff with jitter](https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/) — timeouts first, retries as selfish, the 243× layer multiplication, token-bucket throttling, and idempotency.
+- Marc Brooker, AWS Architecture Blog — [Exponential Backoff and Jitter](https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/) — full, equal, and decorrelated jitter, and the simulation results behind them.
+- Google, Site Reliability Engineering — [Handling Overload](https://sre.google/sre-book/handling-overload/) — the per-request attempt budget, the per-client retry ratio, adaptive throttling, and retrying only at the layer above.
+- Google, Site Reliability Engineering — [Addressing Cascading Failures](https://sre.google/sre-book/addressing-cascading-failures/) — retries as an amplification channel.
+- Nygard, *Release It!* (2nd ed.) — Timeouts and the advice to queue a failed call and retry it later, outside the caller's deadline.
+- Huang et al., [Metastable Failures in Distributed Systems](https://sigops.org/s/conferences/hotos/2021/papers/hotos21-s11-huang.pdf) — incidents where retries sustained the overload after the trigger was gone.
