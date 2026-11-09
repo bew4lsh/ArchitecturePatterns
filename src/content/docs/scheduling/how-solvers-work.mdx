@@ -1,0 +1,202 @@
+---
+title: How Solvers Work
+description: What a modern combinatorial solver such as OR-Tools' CP-SAT does with a scheduling model, and what that means for the system around it.
+sidebar:
+  order: 2
+---
+
+import Diagram from '../../../components/Diagram.astro';
+import SolverSimulator from '../../../components/SolverSimulator.astro';
+
+A solver is not a function that returns the best schedule. It is a search that runs under a time budget and returns the best schedule it has found. Understanding what happens inside explains why the model is the artefact you version, why the answer can vary between runs, and why a solver belongs behind a queue rather than in a request handler.
+
+## The model is the interface
+
+Everything starts with a declarative model: variables with domains, constraints over them, and an objective. For scheduling, OR-Tools' CP-SAT offers variables that mean "this task starts at time *t*" and constraints that mean "these tasks may not overlap" or "these tasks share a machine of capacity *n*". Nothing in the model says how to search.
+
+That separation is the first architectural fact. The constraints are business rules; the search is the solver's business. A rule change should be a model change, not an engine change.
+
+OR-Tools is a suite, and the engine follows the model: CP-SAT for integer programs with rich logical constraints, MPSolver for linear and mixed-integer programs, and the routing library — local search over a CP core — for vehicle routing. CP-SAT works over the integers, so fractional data has to be scaled into whole numbers first.
+
+## Presolve and propagation
+
+Before any search, the solver narrows the problem. **Presolve** removes variables and constraints that cannot matter, fixes values that are forced, and detects some infeasibilities outright. **Propagation** then uses each constraint to shrink the domains of the variables it touches: if task B must follow task A and A cannot finish before 10, then B cannot start before 10. Repeat that across constraints and some problems are solved, or proven impossible, without a single guess.
+
+This is why a solver can answer "infeasible" quickly and correctly. It can also spend a long time proving infeasibility: the answer is a proof, not a guess.
+
+<Diagram caption="The pipeline. The model is presolved once, then a portfolio of workers searches, sharing what each one learns; the best-so-far is the answer at any moment.">
+
+<svg viewBox="0 0 880 320" role="img" aria-label="A model is presolved, then a search core searches with a portfolio of workers, producing the best solution so far. Learned clauses, bounds, and new solutions feed back into the search.">
+	<defs>
+		<marker id="solver-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+			<path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--sl-color-gray-3)" />
+		</marker>
+		<marker id="solver-feedback" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+			<path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--sl-color-accent)" />
+		</marker>
+	</defs>
+
+	<rect x="30" y="90" width="150" height="72" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="105" y="118" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:14px;font-weight:600">Model</text>
+	<text x="105" y="138" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:10px">variables · constraints</text>
+	<text x="105" y="152" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:10px">objective</text>
+
+	<rect x="230" y="90" width="150" height="72" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="305" y="118" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:14px;font-weight:600">Presolve</text>
+	<text x="305" y="140" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:10px">domains narrowed</text>
+
+	<rect x="430" y="90" width="200" height="72" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="530" y="118" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:14px;font-weight:600">Search core</text>
+	<text x="530" y="140" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:10px">propagation · clause learning</text>
+
+	<rect x="680" y="90" width="170" height="72" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="765" y="118" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:14px;font-weight:600">Best so far</text>
+	<text x="765" y="140" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:10px">status · bound</text>
+
+	<line x1="180" y1="126" x2="226" y2="126" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#solver-arrow)" />
+	<line x1="380" y1="126" x2="426" y2="126" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#solver-arrow)" />
+	<line x1="630" y1="126" x2="676" y2="126" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#solver-arrow)" />
+
+	<rect x="430" y="200" width="420" height="56" rx="8" style="fill:none;stroke:var(--sl-color-gray-4)" stroke-dasharray="6 4" />
+	<text x="640" y="224" text-anchor="middle" style="fill:var(--sl-color-gray-2);font-size:12px;font-weight:600">Portfolio of workers</text>
+	<text x="640" y="242" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:10px">complete search · large neighbourhood search · probing</text>
+
+	<path d="M765 162V286H530V260" style="fill:none;stroke:var(--sl-color-accent)" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#solver-feedback)" />
+	<text x="648" y="302" text-anchor="middle" style="fill:var(--sl-color-accent);font-size:10px">shares bounds, clauses, and solutions between workers</text>
+</svg>
+
+</Diagram>
+
+## Three engines, and the one CP-SAT uses
+
+A combinatorial solver is usually built from one of three engines, or from a mix:
+
+| Engine | Idea | Strong at |
+| --- | --- | --- |
+| Constraint programming | propagate constraints to shrink domains, then branch and backtrack | sequencing, feasibility, logical constraints |
+| Mixed integer programming | relax to a linear program, branch on fractional variables, add cuts | linear objectives, proving bounds |
+| Local search | move from solution to solution inside a neighbourhood | routing, very large instances, anytime output |
+
+CP-SAT is constraint programming rebuilt on top of a SAT engine, with a simplex alongside and local search folded in. The scheduling constraints — no-overlap, cumulative capacity — are a rich modelling layer; the search underneath is not the classic CP search. That combination is what produced the recent closed-problem results on job-shop and resource-constrained project scheduling benchmarks, where the scheduling constraints and the SAT core reinforce each other.
+
+## Lazy clause generation
+
+The idea that makes it work is **lazy clause generation**. A propagator that removes a value from a domain also produces an explanation for why: the reason, as a logical clause. Feed those explanations to a Conflict-Driven Clause Learning (CDCL) SAT solver and it does what SAT solvers do — when a branch leads to conflict, it derives a *nogood*, a clause that rules out the whole family of assignments with the same cause, and jumps back to the decision that mattered rather than the most recent one.
+
+The effect is that the search stops repeating its mistakes, and it stops them exponentially: one learned clause can remove an enormous subtree. It also changes the economics of the solver. Expensive propagation is worth running when its explanations are reused, and that is why a simplex sits inside a constraint solver at all.
+
+<Diagram caption="A conflict is explained, not merely recorded. The explanation becomes a clause that prunes every branch with the same cause — so the right-hand subtree is never explored.">
+
+<svg viewBox="0 0 760 320" role="img" aria-label="A search tree. The left branch reaches a conflict, and the explanation becomes a clause that prunes the right branch without searching it.">
+	<defs>
+		<marker id="solver-learn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+			<path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--sl-color-red)" />
+		</marker>
+	</defs>
+
+	<line x1="380" y1="60" x2="240" y2="126" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" />
+	<line x1="380" y1="60" x2="520" y2="126" style="stroke:var(--sl-color-gray-4)" stroke-width="1.5" stroke-dasharray="5 4" />
+	<line x1="240" y1="144" x2="150" y2="206" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" />
+	<line x1="240" y1="144" x2="330" y2="206" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" />
+	<line x1="520" y1="144" x2="430" y2="206" style="stroke:var(--sl-color-gray-4)" stroke-width="1.5" stroke-dasharray="5 4" />
+	<line x1="520" y1="144" x2="610" y2="206" style="stroke:var(--sl-color-gray-4)" stroke-width="1.5" stroke-dasharray="5 4" />
+
+	<circle cx="380" cy="48" r="14" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="380" y="53" text-anchor="middle" style="fill:var(--sl-color-gray-2);font-size:11px">root</text>
+
+	<circle cx="240" cy="135" r="14" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="240" y="140" text-anchor="middle" style="fill:var(--sl-color-gray-2);font-size:11px">x=1</text>
+	<circle cx="520" cy="135" r="14" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4);stroke-dasharray:4 3" />
+	<text x="520" y="140" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">x≠1</text>
+
+	<circle cx="150" cy="215" r="14" style="fill:var(--sl-color-red-low);stroke:var(--sl-color-red)" />
+	<text x="150" y="220" text-anchor="middle" style="fill:var(--sl-color-red);font-size:12px">✕</text>
+	<circle cx="330" cy="215" r="14" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+
+	<circle cx="430" cy="215" r="14" style="fill:none;stroke:var(--sl-color-gray-4);stroke-dasharray:4 3" />
+	<text x="430" y="220" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">✕</text>
+	<circle cx="610" cy="215" r="14" style="fill:none;stroke:var(--sl-color-gray-4);stroke-dasharray:4 3" />
+	<text x="610" y="220" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:11px">✕</text>
+
+	<path d="M164 213 Q300 250 500 142" style="fill:none;stroke:var(--sl-color-red)" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#solver-learn)" />
+	<text x="330" y="268" text-anchor="middle" style="fill:var(--sl-color-red);font-size:10px">the conflict explains a clause: x≠1</text>
+	<text x="520" y="288" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:10px">pruned without search</text>
+</svg>
+
+</Diagram>
+
+## A portfolio, not a search
+
+CP-SAT does not run one search. It runs a set of workers with different personalities: complete searches with different branching heuristics, workers that focus on feasible solutions, workers that run large neighbourhood search, and background probing that strengthens bounds. They rarely share a tree; they share results.
+
+A set of thread-safe managers sits between them. The response manager holds the best solution and the objective bound. The bounds manager propagates tightened variable domains found by one worker to the others. The solution repository keeps a pool of diverse feasible solutions to seed later searches. The time limit is shared, so the whole run stops together.
+
+For a scheduling model, a large part of that effort is **large neighbourhood search**: keep most of the schedule fixed, free a subset of tasks, and re-solve the much smaller subproblem. The submodel is presolved on its own and solved with a short limit, and a better solution goes back into the pool. Specialised generators pick the neighbourhood by time window, by resource, or by the difference between the current solution and the linear relaxation (RINS).
+
+<Diagram caption="Large neighbourhood search fixes most of the schedule and re-solves one neighbourhood, so each iteration is a small scheduling problem rather than the whole one.">
+
+<svg viewBox="0 0 760 240" role="img" aria-label="A loop: take a solution from the pool, destroy part of it, repair the subproblem, and accept the result if it is better.">
+	<defs>
+		<marker id="solver-lns" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+			<path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--sl-color-gray-3)" />
+		</marker>
+		<marker id="solver-lns-back" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+			<path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--sl-color-accent)" />
+		</marker>
+	</defs>
+
+	<rect x="40" y="80" width="150" height="64" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="115" y="108" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:13px;font-weight:600">Solution pool</text>
+	<text x="115" y="128" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:10px">diverse feasible ones</text>
+
+	<rect x="240" y="80" width="140" height="64" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="310" y="108" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:13px;font-weight:600">Destroy</text>
+	<text x="310" y="128" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:10px">free a subset of tasks</text>
+
+	<rect x="430" y="80" width="170" height="64" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="515" y="108" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:13px;font-weight:600">Repair</text>
+	<text x="515" y="128" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:10px">solve the subproblem</text>
+
+	<rect x="650" y="80" width="90" height="64" rx="8" style="fill:var(--sl-color-gray-6);stroke:var(--sl-color-gray-4)" />
+	<text x="695" y="108" text-anchor="middle" style="fill:var(--sl-color-gray-1);font-size:13px;font-weight:600">Accept</text>
+	<text x="695" y="128" text-anchor="middle" style="fill:var(--sl-color-gray-3);font-size:10px">if better</text>
+
+	<line x1="190" y1="112" x2="236" y2="112" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#solver-lns)" />
+	<line x1="380" y1="112" x2="426" y2="112" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#solver-lns)" />
+	<line x1="600" y1="112" x2="646" y2="112" style="stroke:var(--sl-color-gray-3)" stroke-width="1.5" marker-end="url(#solver-lns)" />
+	<path d="M695 144V196H115V148" style="fill:none;stroke:var(--sl-color-accent)" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#solver-lns-back)" />
+	<text x="405" y="216" text-anchor="middle" style="fill:var(--sl-color-accent);font-size:10px">a better schedule joins the pool and seeds the next neighbourhood</text>
+</svg>
+
+</Diagram>
+
+## What the solver promises
+
+The return value is a status, not just an answer: **OPTIMAL** (proven best), **FEASIBLE** (a solution, optimality unknown), **INFEASIBLE** (proven impossible), **UNKNOWN** (stopped before either), or **MODEL_INVALID**. A time limit turns a hard model into a FEASIBLE answer with a proven bound on how far it can be from optimal. A callback receives each improving solution as it is found, which is what makes the workflow anytime.
+
+Two consequences follow. First, "we asked for the optimum" and "we proved the optimum" are different claims, and a schedule shipped from a timed-out solve carries a gap. Second, parallelism costs reproducibility: with several workers the search interleaves and the run is not repeatable. Fixing the worker count to one and setting the random seed is how you get the same answer twice.
+
+### Watching propagation and the budget
+
+Full bounds propagation proves the optimal schedule in a few thousand nodes. Switch propagation off and the same proof needs more than a million, or never arrives before the budget runs out. The step chart is the anytime answer: the best makespan found so far, falling toward the lower bound, and the gap that a budget leaves behind.
+
+<SolverSimulator />
+
+The instance is four jobs on four machines, each with its own route. The lower bound of 14 comes from the busiest machine, and a schedule that reaches it exists, so 14 is optimal.
+
+## What this means for the system around it
+
+- **Version the model, not the schedule.** The model is the thing a rule change edits; the schedule is an output.
+- **Treat the solver as a CPU-bound worker.** It runs for seconds to hours, holds no useful state between runs, and belongs behind a queue with a time budget — not in a request handler.
+- **Make the time budget the contract.** Ask for "best within 30 seconds", and record the bound on what came back.
+- **Check feasibility independently.** A solver bug or a modelling mistake produces a confident schedule; a separate feasibility checker catches it before it ships.
+- **Keep determinism where you need it.** One worker and a fixed seed for reproducible tests; many workers and a time budget for production.
+- **Watch the model, not the search.** Presolve and clause learning make the same problem cheap or expensive depending on how it is written, and that is the lever you control.
+
+## References
+
+- Google, OR-Tools — [CP-SAT solver](https://developers.google.com/optimization/cp/cp_solver) and [Vehicle Routing](https://developers.google.com/optimization/routing).
+- Perron, Didier & Gay, [The CP-SAT-LP Solver](https://drops.dagstuhl.de/entities/document/10.4230/LIPIcs.CP.2023.3) (CP 2023, invited talk) — the architecture: SAT core, simplex, MIP techniques, portfolio, and the scheduling benchmarks it closed.
+- Stuckey, [Lazy Clause Generation](https://people.eng.unimelb.edu.au/pstuckey/papers/lcg.pdf) — explaining propagation to a CDCL SAT solver.
+- Shaw, [Using Constraint Programming and Local Search Methods to Solve Vehicle Routing Problems](https://link.springer.com/chapter/10.1007/3-540-49481-2_30) (1998) — the origin of large neighbourhood search.
+- Krupke, [The CP-SAT Primer](https://d-krupke.github.io/cpsat-primer/) — a practical tour of the solver's behaviour and its log.

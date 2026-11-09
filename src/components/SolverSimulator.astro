@@ -1,0 +1,530 @@
+---
+interface Props {
+	/** Node budget for the first run. */
+	budget?: number;
+}
+
+const { budget = 100000 } = Astro.props;
+
+const JOBS = [
+	[
+		[0, 4],
+		[1, 3],
+		[2, 2],
+		[3, 3],
+	],
+	[
+		[1, 2],
+		[0, 3],
+		[3, 4],
+		[2, 2],
+	],
+	[
+		[2, 3],
+		[3, 2],
+		[0, 4],
+		[1, 3],
+	],
+	[
+		[3, 2],
+		[2, 4],
+		[1, 3],
+		[0, 3],
+	],
+];
+
+const OP_COUNT = JOBS.reduce((sum, route) => sum + route.length, 0);
+const ops = JOBS.flatMap((route, job) =>
+	route.map(([machine, dur]) => ({ machine, dur, job })),
+);
+const machines = [...new Set(ops.map((op) => op.machine))];
+const ganttRows = machines.map((machine) => ({
+	machine,
+	ops: ops.map((op, index) => ({ ...op, index })).filter((op) => op.machine === machine),
+}));
+const HORIZON = ops.reduce((sum, op) => sum + op.dur, 0);
+---
+
+<section class="sim not-content" data-sim aria-label="Branch and bound simulator">
+	<div class="controls">
+		<div class="control">
+			<span>Propagation</span>
+			<button type="button" class="toggle" data-propagation aria-pressed="true">Full bounds</button>
+		</div>
+		<label class="control">
+			<span>Node budget <b data-budget-value>{budget.toLocaleString()}</b></span>
+			<input type="range" data-budget min="1" max="6" step="1" value="4" />
+		</label>
+		<div class="buttons">
+			<button type="button" data-run>Run</button>
+			<button type="button" data-reset>Reset</button>
+		</div>
+	</div>
+
+	<p class="verdict" data-verdict>
+		Press Run. The solver searches for the shortest schedule; the lower bound is 14.
+	</p>
+
+	<figure class="gantt">
+		<svg viewBox="0 0 640 190" role="img" aria-label="A Gantt chart of the best schedule found, with one row per machine.">
+			<g data-gantt-rows>
+				{
+					ganttRows.map((row, rowIndex) => (
+						<>
+							<text x="0" y={34 + rowIndex * 40} style="fill:var(--sl-color-gray-3);font-size:11px">
+								M{row.machine}
+							</text>
+							<line x1="34" y1={30 + rowIndex * 40} x2="630" y2={30 + rowIndex * 40} style="stroke:var(--sl-color-gray-5)" />
+							{row.ops.map((op) => (
+								<rect
+									data-bar
+									data-op={op.index}
+									x="34"
+									y={14 + rowIndex * 40}
+									width="0"
+									height="26"
+									rx="3"
+									style="fill:var(--sim-job)"
+								/>
+							))}
+						</>
+					))
+				}
+			</g>
+			<g data-gantt-labels />
+		</svg>
+		<figcaption>
+			<span>Best schedule found · one row per machine</span>
+			<span>the makespan is the last bar to finish</span>
+		</figcaption>
+	</figure>
+
+	<figure class="chart">
+		<svg viewBox="0 0 640 180" role="img" aria-label="A step chart of the best makespan found as the search explores nodes, against the lower bound.">
+			<line x1="40" y1="150" x2="630" y2="150" style="stroke:var(--sl-color-gray-4)" />
+			<line x1="40" y1="20" x2="40" y2="150" style="stroke:var(--sl-color-gray-4)" />
+			<line data-bound x1="40" y1="150" x2="630" y2="150" style="stroke:var(--sl-color-orange)" stroke-width="1.5" stroke-dasharray="6 5" />
+			<polyline data-best points="" style="fill:none;stroke:var(--sl-color-accent);stroke-width:2;stroke-linejoin:round" />
+			<text x="40" y="170" style="fill:var(--sl-color-gray-3);font-size:10px">nodes explored →</text>
+			<text x="44" y="14" style="fill:var(--sl-color-gray-3);font-size:10px">makespan</text>
+		</svg>
+		<figcaption>
+			<span>Best makespan found as the search runs</span>
+			<span class="key">lower bound 14</span>
+		</figcaption>
+	</figure>
+
+	<p class="note" data-note>
+		Nodes 0 · best — · bound 14 · gap —
+	</p>
+</section>
+
+<style>
+	.sim {
+		--sim-job: var(--sl-color-accent);
+		display: grid;
+		gap: 1rem;
+		margin: 2rem 0;
+		padding: 1.25rem;
+		border: 1px solid var(--sl-color-gray-4);
+		border-radius: 0.75rem;
+		background: var(--sl-color-gray-6);
+	}
+
+	.controls {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: end;
+		gap: 0.75rem 1.5rem;
+	}
+
+	.control {
+		display: grid;
+		flex: 1 1 12rem;
+		gap: 0.35rem;
+		font-size: 0.8125rem;
+		color: var(--sl-color-gray-2);
+	}
+
+	.control b {
+		font-variant-numeric: tabular-nums;
+	}
+
+	.control input {
+		width: 100%;
+		accent-color: var(--sl-color-accent);
+	}
+
+	.toggle,
+	.buttons button {
+		padding: 0.35rem 0.75rem;
+		border: 1px solid var(--sl-color-gray-4);
+		border-radius: 0.375rem;
+		background: transparent;
+		color: var(--sl-color-gray-2);
+		font: inherit;
+		font-size: 0.8125rem;
+		cursor: pointer;
+	}
+
+	.toggle[aria-pressed='true'] {
+		border-color: var(--sl-color-accent);
+		color: var(--sl-color-accent-high);
+	}
+
+	.buttons {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.buttons button:hover,
+	.toggle:hover {
+		background: var(--sl-color-gray-5);
+	}
+
+	.verdict {
+		margin: 0;
+		font-size: 0.9375rem;
+		color: var(--sl-color-gray-1);
+	}
+
+	.verdict::before {
+		content: '';
+		display: inline-block;
+		width: 0.5rem;
+		height: 0.5rem;
+		margin-right: 0.5rem;
+		border-radius: 50%;
+		background: var(--sim-job);
+	}
+
+	.gantt,
+	.chart {
+		margin: 0;
+	}
+
+	.gantt svg {
+		display: block;
+		width: 100%;
+		height: 190px;
+	}
+
+	.chart svg {
+		display: block;
+		width: 100%;
+		height: 180px;
+	}
+
+	.gantt :global([data-bar]) {
+		transition:
+			x 160ms linear,
+			width 160ms linear;
+	}
+
+	.gantt figcaption,
+	.chart figcaption {
+		display: flex;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-top: 0.35rem;
+		font-size: 0.75rem;
+		color: var(--sl-color-gray-3);
+	}
+
+	.key {
+		color: var(--sl-color-orange);
+	}
+
+	.note {
+		margin: 0;
+		font-variant-numeric: tabular-nums;
+		font-size: 0.75rem;
+		color: var(--sl-color-gray-3);
+	}
+</style>
+
+<script>
+	const JOBS: number[][][] = [
+		[
+			[0, 4],
+			[1, 3],
+			[2, 2],
+			[3, 3],
+		],
+		[
+			[1, 2],
+			[0, 3],
+			[3, 4],
+			[2, 2],
+		],
+		[
+			[2, 3],
+			[3, 2],
+			[0, 4],
+			[1, 3],
+		],
+		[
+			[3, 2],
+			[2, 4],
+			[1, 3],
+			[0, 3],
+		],
+	];
+	const MACHINES = 4;
+	const OP_COUNT = 16;
+	const LOWER_BOUND = 14;
+
+	type Op = { id: number; job: number; step: number; machine: number; dur: number; pred: number };
+
+	const OPS: Op[] = [];
+	JOBS.forEach((route, job) => {
+		route.forEach(([machine, dur], step) => {
+			OPS.push({ id: OPS.length, job, step, machine, dur, pred: step > 0 ? OPS.length - 1 : -1 });
+		});
+	});
+	const MACHINE_OPS: number[][] = Array.from({ length: MACHINES }, (_, machine) =>
+		OPS.filter((op) => op.machine === machine).map((op) => op.id),
+	);
+
+	function propagate(lo: number[], hi: number[], full: boolean) {
+		let changed = true;
+		while (changed) {
+			changed = false;
+			for (const op of OPS) {
+				if (lo[op.id] > hi[op.id]) return false;
+				if (op.pred >= 0) {
+					const p = OPS[op.pred];
+					if (lo[p.id] + p.dur > lo[op.id]) {
+						lo[op.id] = lo[p.id] + p.dur;
+						changed = true;
+					}
+					if (hi[op.id] - p.dur < hi[p.id]) {
+						hi[p.id] = hi[op.id] - p.dur;
+						changed = true;
+					}
+					if (lo[p.id] > hi[p.id] || lo[op.id] > hi[op.id]) return false;
+				}
+			}
+			if (!full) continue;
+			for (const list of MACHINE_OPS) {
+				for (let a = 0; a < list.length; a += 1) {
+					for (let b = a + 1; b < list.length; b += 1) {
+						const i = list[a];
+						const j = list[b];
+						const iFirst = lo[i] + OPS[i].dur <= hi[j];
+						const jFirst = lo[j] + OPS[j].dur <= hi[i];
+						if (!iFirst && !jFirst) return false;
+						if (!iFirst) {
+							if (lo[j] + OPS[j].dur > lo[i]) {
+								lo[i] = lo[j] + OPS[j].dur;
+								changed = true;
+							}
+							if (hi[i] - OPS[j].dur < hi[j]) {
+								hi[j] = hi[i] - OPS[j].dur;
+								changed = true;
+							}
+						} else if (!jFirst) {
+							if (lo[i] + OPS[i].dur > lo[j]) {
+								lo[j] = lo[i] + OPS[i].dur;
+								changed = true;
+							}
+							if (hi[j] - OPS[i].dur < hi[i]) {
+								hi[i] = hi[j] - OPS[i].dur;
+								changed = true;
+							}
+						}
+						if (lo[i] > hi[i] || lo[j] > hi[j]) return false;
+					}
+				}
+			}
+		}
+		return true;
+	}
+
+	type Result = {
+		nodes: number;
+		best: number;
+		bestSol: number[] | null;
+		stopped: boolean;
+		events: { nodes: number; best: number; sol: number[] }[];
+	};
+
+	function solve(full: boolean, budget: number): Result {
+		const horizon = OPS.reduce((sum, op) => sum + op.dur, 0);
+		const ctx: Result = { nodes: 0, best: Infinity, bestSol: null, stopped: false, events: [] };
+		const restore = (target: number[], source: number[]) => {
+			for (let i = 0; i < target.length; i += 1) target[i] = source[i];
+		};
+		const conflicts = (lo: number[], hi: number[], id: number) => {
+			const op = OPS[id];
+			for (const other of OPS) {
+				if (other.id === id || other.machine !== op.machine) continue;
+				if (lo[other.id] !== hi[other.id]) continue;
+				if (lo[id] < lo[other.id] + other.dur && lo[other.id] < lo[id] + op.dur) return true;
+			}
+			return false;
+		};
+
+		function dfs(lo: number[], hi: number[]) {
+			if (ctx.nodes >= budget) {
+				ctx.stopped = true;
+				return;
+			}
+			ctx.nodes += 1;
+			if (!propagate(lo, hi, full)) return;
+			let bound = 0;
+			for (const op of OPS) bound = Math.max(bound, lo[op.id] + op.dur);
+			if (bound >= ctx.best) return;
+
+			let varId = -1;
+			let minWidth = Infinity;
+			for (const op of OPS) {
+				const width = hi[op.id] - lo[op.id];
+				if (width > 0 && width < minWidth) {
+					minWidth = width;
+					varId = op.id;
+				}
+			}
+			if (varId === -1) {
+				ctx.best = bound;
+				ctx.bestSol = lo.slice();
+				ctx.events.push({ nodes: ctx.nodes, best: bound, sol: lo.slice() });
+				return;
+			}
+
+			const saveLo = lo.slice();
+			const saveHi = hi.slice();
+			// Try late starts first, so the first schedule is poor and the incumbent has room to improve.
+			for (let value = hi[varId]; value >= lo[varId]; value -= 1) {
+				lo[varId] = value;
+				hi[varId] = value;
+				if (!full && conflicts(lo, hi, varId)) {
+					restore(lo, saveLo);
+					restore(hi, saveHi);
+					continue;
+				}
+				dfs(lo, hi);
+				restore(lo, saveLo);
+				restore(hi, saveHi);
+				if (ctx.stopped) return;
+			}
+		}
+
+		dfs(OPS.map(() => 0), OPS.map((op) => horizon - op.dur));
+		return ctx;
+	}
+
+	function init(root: HTMLElement) {
+		const budgets = [1000, 5000, 20000, 100000, 500000, 2000000, 10000000];
+		const propagationButton = root.querySelector<HTMLButtonElement>('[data-propagation]')!;
+		const budgetInput = root.querySelector<HTMLInputElement>('[data-budget]')!;
+		const budgetValue = root.querySelector('[data-budget-value]')!;
+		const runButton = root.querySelector<HTMLButtonElement>('[data-run]')!;
+		const resetButton = root.querySelector<HTMLButtonElement>('[data-reset]')!;
+		const verdict = root.querySelector('[data-verdict]')!;
+		const note = root.querySelector('[data-note]')!;
+		const bars = [...root.querySelectorAll<SVGRectElement>('[data-bar]')];
+		const bestLine = root.querySelector<SVGPolylineElement>('[data-best]')!;
+		const boundLine = root.querySelector<SVGLineElement>('[data-bound]')!;
+		const labels = root.querySelector<SVGGElement>('[data-gantt-labels]')!;
+
+		let full = true;
+		let timer = 0;
+
+		const drawGantt = (sol: number[] | null) => {
+			labels.textContent = '';
+			bars.forEach((bar) => bar.setAttribute('width', '0'));
+			if (!sol) return;
+			const makespan = Math.max(...OPS.map((op) => sol[op.id] + op.dur));
+			const scale = 596 / makespan;
+			for (const op of OPS) {
+				const bar = bars.find((b) => b.dataset.op === String(op.id))!;
+				bar.setAttribute('x', String(34 + sol[op.id] * scale));
+				bar.setAttribute('width', String(op.dur * scale));
+			}
+		};
+
+		const drawChart = (events: { nodes: number; best: number; sol: number[] }[], nodes: number) => {
+			const firstBest = events.length ? events[0].best : LOWER_BOUND + 6;
+			const yMin = LOWER_BOUND - 1;
+			const yMax = Math.max(firstBest, LOWER_BOUND + 1) + 1;
+			const xMax = Math.max(nodes, 1);
+			const x = (n: number) => 40 + (n / xMax) * 590;
+			const y = (m: number) => 150 - ((m - yMin) / (yMax - yMin)) * 130;
+			boundLine.setAttribute('y1', String(y(LOWER_BOUND)));
+			boundLine.setAttribute('y2', String(y(LOWER_BOUND)));
+			if (events.length === 0) {
+				bestLine.setAttribute('points', '');
+				return;
+			}
+			const points: string[] = [`${x(0)},${y(firstBest)}`];
+			events.forEach((event) => {
+				points.push(`${x(event.nodes)},${y(event.best)}`);
+			});
+			points.push(`${x(nodes)},${y(events[events.length - 1].best)}`);
+			bestLine.setAttribute('points', points.join(' '));
+		};
+
+		const show = (result: Result, progress: number) => {
+			const events = result.events.slice(0, progress);
+			const best = events.length ? events[events.length - 1].best : Infinity;
+			drawGantt(events.length ? events[events.length - 1].sol : null);
+			drawChart(events, result.nodes);
+			const gap = best === Infinity ? '—' : String(best - LOWER_BOUND);
+			note.textContent = `Nodes ${result.nodes.toLocaleString()} · best ${best === Infinity ? '—' : best} · bound ${LOWER_BOUND} · gap ${gap}`;
+		};
+
+		const run = () => {
+			window.clearInterval(timer);
+			const budget = budgets[Number(budgetInput.value) - 1];
+			const result = solve(full, budget);
+			const events = result.events;
+			let progress = 0;
+			show(result, 0);
+			if (events.length === 0) {
+				verdict.textContent = 'No solution within the budget. The search never reached a feasible schedule.';
+				show(result, 0);
+				return;
+			}
+			timer = window.setInterval(() => {
+				progress += 1;
+				show(result, progress);
+				if (progress >= events.length) {
+					window.clearInterval(timer);
+					const best = events[events.length - 1].best;
+					verdict.textContent = result.stopped
+						? `Stopped at the node budget with makespan ${best}. The gap of ${best - LOWER_BOUND} is what the budget cost.`
+						: `Proven optimal: makespan ${best} in ${result.nodes.toLocaleString()} nodes.`;
+				}
+			}, Math.max(80, Math.round(1400 / events.length)));
+		};
+
+		propagationButton.addEventListener('click', () => {
+			full = !full;
+			propagationButton.setAttribute('aria-pressed', String(full));
+			propagationButton.textContent = full ? 'Full bounds' : 'Bounds only';
+			window.clearInterval(timer);
+			verdict.textContent = full
+				? 'Full bounds propagation. Press Run.'
+				: 'Bounds only: machine overlaps are not propagated, only checked. Press Run.';
+		});
+
+		budgetInput.addEventListener('input', () => {
+			budgetValue.textContent = budgets[Number(budgetInput.value) - 1].toLocaleString();
+		});
+
+		runButton.addEventListener('click', run);
+		resetButton.addEventListener('click', () => {
+			window.clearInterval(timer);
+			drawGantt(null);
+			bestLine.setAttribute('points', '');
+			note.textContent = `Nodes 0 · best — · bound ${LOWER_BOUND} · gap —`;
+			verdict.textContent = 'Press Run. The solver searches for the shortest schedule; the lower bound is 14.';
+		});
+
+		drawGantt(null);
+		show({ nodes: 0, best: Infinity, bestSol: null, stopped: false, events: [] }, 0);
+	}
+
+	document.querySelectorAll<HTMLElement>('[data-sim]').forEach(init);
+</script>
