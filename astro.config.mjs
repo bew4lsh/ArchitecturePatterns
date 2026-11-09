@@ -38,6 +38,7 @@ export default defineConfig({
 				{ label: 'Messaging', items: [{ autogenerate: { directory: 'messaging' } }] },
 				{ label: 'Presentation', items: [{ autogenerate: { directory: 'presentation' } }] },
 				{ label: 'Reliability', items: [{ autogenerate: { directory: 'reliability' } }] },
+				{ label: 'Scheduling', items: [{ autogenerate: { directory: 'scheduling' } }] },
 			],
 		}),
 	],
